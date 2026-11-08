@@ -39,8 +39,9 @@ if (Test-Path -LiteralPath (Join-Path $testDir 'CoreTests.cs')) {
     if ($LASTEXITCODE -ne 0) { throw '测试编译失败。' }
 }
 
-if (Test-Path -LiteralPath (Join-Path $testDir 'ThemeTests.cs')) {
-    $themeTestArguments = @('/nologo','/target:exe','/main:ThemeTests','/optimize+','/codepage:65001',('/out:' + (Join-Path $testDir 'ThemeTests.exe')),('/resource:' + (Join-Path $projectRoot 'src\MainWindow.xaml') + ',DailyLedger.MainWindow.xaml'),('/resource:' + $iconPath + ',DailyLedger.app.ico')) + $references + @((Join-Path $projectRoot 'src\Core.cs'),(Join-Path $projectRoot 'src\Theme.cs'),(Join-Path $projectRoot 'src\App.cs'),(Join-Path $testDir 'ThemeTests.cs'))
+foreach ($uiTestName in @('ThemeTests','LedgerTests')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $testDir ($uiTestName + '.cs')))) { continue }
+    $themeTestArguments = @('/nologo','/target:exe',('/main:' + $uiTestName),'/optimize+','/codepage:65001',('/out:' + (Join-Path $testDir ($uiTestName + '.exe'))),('/resource:' + (Join-Path $projectRoot 'src\MainWindow.xaml') + ',DailyLedger.MainWindow.xaml'),('/resource:' + $iconPath + ',DailyLedger.app.ico')) + $references + @((Join-Path $projectRoot 'src\Core.cs'),(Join-Path $projectRoot 'src\Theme.cs'),(Join-Path $projectRoot 'src\App.cs'),(Join-Path $testDir ($uiTestName + '.cs')))
     & $compilerPath $themeTestArguments
     if ($LASTEXITCODE -ne 0) { throw 'Theme tests failed to compile.' }
 }

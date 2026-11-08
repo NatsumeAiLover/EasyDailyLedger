@@ -19,6 +19,7 @@
 # Generated test artifacts
 /tests/runs/
 /tests/theme-runs/
+/tests/ledger-runs/
 /tests/界面测试/
 # Local editor files
 .vs/

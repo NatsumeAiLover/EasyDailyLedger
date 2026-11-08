@@ -61,36 +61,36 @@ namespace DailyLedger
 
     public static class AppTheme
     {
-        // Each semantic color has a light and dark counterpart. Dynamic resources update open views in place.
+        // Columns: light, original green dark, neutral charcoal dark.
         private static readonly string[,] Colors = {
-            { "AppBackground", "#F4F6F5", "#151C19" },
-            { "SidebarBackground", "#E7EEEA", "#1A241F" },
-            { "Surface", "#FFFFFF", "#222E27" },
-            { "InputBackground", "#FFFFFF", "#19231E" },
-            { "Ink", "#233731", "#EAF2ED" },
-            { "Muted", "#5E7167", "#B6C8BC" },
-            { "Accent", "#21685C", "#93D2B8" },
-            { "OnAccent", "#FFFFFF", "#132F24" },
-            { "AccentSoft", "#E1EDE5", "#354F41" },
-            { "BudgetSurface", "#E3F0E9", "#283F32" },
-            { "ButtonBackground", "#EDF2EF", "#2D3E33" },
-            { "HoverBackground", "#E4EDE7", "#3A5042" },
-            { "Border", "#D5DFD8", "#48614F" },
-            { "Danger", "#A23D32", "#FFB2A4" },
-            { "ProgressTrack", "#E1E8E3", "#384C3E" },
-            { "AlternateRow", "#F7F9F8", "#26362C" },
-            { "GridLine", "#E9EEEA", "#3B4E41" },
-            { "GroupBackground", "#EAF0EC", "#2E4436" },
-            { "HeaderInk", "#52685C", "#D0E1D5" },
-            { "SelectionBackground", "#D7EBDF", "#3B5B48" },
-            { "SelectionInk", "#163D2B", "#F3FAF5" }
+            { "AppBackground", "#F4F6F5", "#151C19", "#151515" },
+            { "SidebarBackground", "#E7EEEA", "#1A241F", "#1C1C1C" },
+            { "Surface", "#FFFFFF", "#222E27", "#242424" },
+            { "InputBackground", "#FFFFFF", "#19231E", "#1B1B1B" },
+            { "Ink", "#233731", "#EAF2ED", "#EEEEEE" },
+            { "Muted", "#5E7167", "#B6C8BC", "#BDBDBD" },
+            { "Accent", "#21685C", "#93D2B8", "#D5D5D5" },
+            { "OnAccent", "#FFFFFF", "#132F24", "#202020" },
+            { "AccentSoft", "#E1EDE5", "#354F41", "#3A3A3A" },
+            { "BudgetSurface", "#E3F0E9", "#283F32", "#2D2D2D" },
+            { "ButtonBackground", "#EDF2EF", "#2D3E33", "#333333" },
+            { "HoverBackground", "#E4EDE7", "#3A5042", "#414141" },
+            { "Border", "#D5DFD8", "#48614F", "#525252" },
+            { "Danger", "#A23D32", "#FFB2A4", "#FFB2A4" },
+            { "ProgressTrack", "#E1E8E3", "#384C3E", "#3D3D3D" },
+            { "AlternateRow", "#F7F9F8", "#26362C", "#292929" },
+            { "GridLine", "#E9EEEA", "#3B4E41", "#3B3B3B" },
+            { "GroupBackground", "#EAF0EC", "#2E4436", "#303030" },
+            { "HeaderInk", "#52685C", "#D0E1D5", "#D6D6D6" },
+            { "SelectionBackground", "#D7EBDF", "#3B5B48", "#484848" },
+            { "SelectionInk", "#163D2B", "#F3FAF5", "#FFFFFF" }
         };
-        public static bool IsValid(string name) { return name == "light" || name == "dark"; }
+        public static bool IsValid(string name) { return name == "light" || name == "dark" || name == "green"; }
         public static IDictionary<string, Color> Palette(string name)
         {
             if (!IsValid(name)) throw new ArgumentException("不支持的外观模式。", "name");
             var result = new Dictionary<string, Color>();
-            int column = name == "dark" ? 2 : 1;
+            int column = name == "dark" ? 3 : name == "green" ? 2 : 1;
             for (int i = 0; i < Colors.GetLength(0); i++) result.Add(Colors[i, 0], (Color)ColorConverter.ConvertFromString(Colors[i, column]));
             return result;
         }
@@ -120,7 +120,7 @@ namespace DailyLedger
             if (handle == IntPtr.Zero) return;
             try
             {
-                int dark = Object.Equals(window.Resources["ThemeName"], "dark") ? 1 : 0;
+                int dark = Object.Equals(window.Resources["ThemeName"], "light") ? 0 : 1;
                 DwmSetWindowAttribute(handle, 20, ref dark, sizeof(int));
                 var background = ((SolidColorBrush)window.Resources["AppBackground"]).Color;
                 var foreground = ((SolidColorBrush)window.Resources["Ink"]).Color;

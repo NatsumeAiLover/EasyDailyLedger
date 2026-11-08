@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -16,8 +17,8 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("日常账本")]
 [assembly: AssemblyDescription("按天记录，按月安排的个人本机账本")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyFileVersion("1.2.0.0")]
 
 namespace DailyLedger
 {
@@ -66,11 +67,24 @@ namespace DailyLedger
     {
         public string Id { get; set; }
         public string Date { get; set; }
-        public string DayGroup { get; set; }
+        public LedgerDay DayGroup { get; set; }
         public string KindLabel { get; set; }
         public string CategoryName { get; set; }
         public string AmountLabel { get; set; }
         public string Note { get; set; }
+    }
+    public sealed class LedgerDay : INotifyPropertyChanged
+    {
+        public string Date { get; set; }
+        public string DateLabel { get; set; }
+        public string Summary { get; set; }
+        private bool expanded;
+        public bool IsExpanded
+        {
+            get { return expanded; }
+            set { if (expanded == value) return; expanded = value; if (PropertyChanged != null) PropertyChanged(this, new PropertyChangedEventArgs("IsExpanded")); }
+        }
+        public event PropertyChangedEventHandler PropertyChanged;
     }
     internal sealed class LedgerWindow
     {
@@ -80,6 +94,8 @@ namespace DailyLedger
         private DateTime month = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         private string entryKind = "expense", editId = null, page = "home";
         private bool refreshing;
+        private bool newestFirst = true;
+        private readonly Dictionary<string, bool> expandedDays = new Dictionary<string, bool>();
         private readonly AppearanceStore appearance;
         private string theme;
         private bool updatingThemeControls;
@@ -105,7 +121,7 @@ namespace DailyLedger
             Find<DatePicker>("EntryDate").DisplayDateEnd = DateTime.Today;
             Select("FilterType").ItemsSource = new[] { "全部收支", "仅支出", "仅收入" }; Select("FilterType").SelectedIndex = 0;
             Select("CategoryKind").ItemsSource = new[] { "支出大类", "收入大类" }; Select("CategoryKind").SelectedIndex = 0;
-            Select("ThemeMode").ItemsSource = new[] { "浅色", "深色" }; UpdateThemeControls();
+            Select("ThemeMode").ItemsSource = new[] { "浅色", "深色 · 黑灰", "深色 · 墨绿" }; UpdateThemeControls();
             WireEvents();
             EnsureBudget();
             RefreshCategories();
@@ -137,8 +153,8 @@ namespace DailyLedger
             Button("NavHome").Click += (s, e) => ShowPage("home");
             Button("NavLedger").Click += (s, e) => ShowPage("ledger");
             Button("NavSettings").Click += (s, e) => ShowPage("settings");
-            Button("ToggleTheme").Click += (s, e) => ChangeTheme(theme == "dark" ? "light" : "dark");
-            Select("ThemeMode").SelectionChanged += (s, e) => { if (!updatingThemeControls && Select("ThemeMode").SelectedIndex >= 0) ChangeTheme(Select("ThemeMode").SelectedIndex == 1 ? "dark" : "light"); };
+            Button("ToggleTheme").Click += (s, e) => ChangeTheme(theme == "light" ? "dark" : theme == "dark" ? "green" : "light");
+            Select("ThemeMode").SelectionChanged += (s, e) => { if (!updatingThemeControls && Select("ThemeMode").SelectedIndex >= 0) ChangeTheme(new[] { "light", "dark", "green" }[Select("ThemeMode").SelectedIndex]); };
             Button("OpenAllEntries").Click += (s, e) => ShowPage("ledger");
             Button("PreviousMonth").Click += (s, e) => ChangeMonth(month.AddMonths(-1));
             Button("NextMonth").Click += (s, e) => ChangeMonth(month.AddMonths(1));
@@ -152,9 +168,12 @@ namespace DailyLedger
             Select("FilterType").SelectionChanged += (s, e) => { if (!refreshing) { PopulateFilterCategories(); RefreshLedger(); } };
             Select("FilterCategory").SelectionChanged += (s, e) => { if (!refreshing) RefreshLedger(); };
             Input("SearchText").TextChanged += (s, e) => { if (!refreshing) RefreshLedger(); };
+            Button("DateSort").Click += (s, e) => { newestFirst = !newestFirst; RefreshLedger(); };
             Button("EditEntry").Click += (s, e) => EditSelected();
             Button("DeleteEntry").Click += (s, e) => DeleteSelected();
-            Find<DataGrid>("EntriesGrid").MouseDoubleClick += (s, e) => EditSelected();
+            Find<DataGrid>("EntriesGrid").MouseDoubleClick += (s, e) => {
+                if (ItemsControl.ContainerFromElement(Find<DataGrid>("EntriesGrid"), e.OriginalSource as DependencyObject) is DataGridRow) EditSelected();
+            };
             Button("ExportMonth").Click += (s, e) => ExportMonth();
             Select("CategoryKind").SelectionChanged += (s, e) => { if (!refreshing) RefreshManageCategories(); };
             Select("ManageCategory").SelectionChanged += (s, e) => {
@@ -174,8 +193,8 @@ namespace DailyLedger
             updatingThemeControls = true;
             try
             {
-                Select("ThemeMode").SelectedIndex = theme == "dark" ? 1 : 0;
-                Button("ToggleTheme").Content = theme == "dark" ? "切换浅色" : "切换深色";
+                Select("ThemeMode").SelectedIndex = theme == "green" ? 2 : theme == "dark" ? 1 : 0;
+                Button("ToggleTheme").Content = theme == "light" ? "切换黑灰" : theme == "dark" ? "切换墨绿" : "切换浅色";
             }
             finally { updatingThemeControls = false; }
         }
@@ -190,7 +209,7 @@ namespace DailyLedger
                 return;
             }
             AppTheme.Apply(Window, value); theme = value; UpdateThemeControls();
-            Text("StatusText").Text = "已切换至" + (value == "dark" ? "深色" : "浅色") + "模式 · 下次打开会保持此选择";
+            Text("StatusText").Text = "已切换至" + (value == "green" ? "墨绿深色" : value == "dark" ? "黑灰深色" : "浅色") + "模式 · 下次打开会保持此选择";
         }
         private void Run(Action action)
         {
@@ -230,7 +249,7 @@ namespace DailyLedger
                 if (selected) AppTheme.Bind(Button(name), Control.BackgroundProperty, "Surface"); else Button(name).Background = Brushes.Transparent;
             }
             Text("PageTitle").Text = value == "home" ? "本月概览" : value == "ledger" ? "每日账单" : "设置与备份";
-            Text("PageSubtitle").Text = value == "home" ? (month.Month == DateTime.Today.Month && month.Year == DateTime.Today.Year ? "截至今天 · " + DateTime.Today.ToString("M 月 d 日") : "历史月份 · 整月汇总") : value == "ledger" ? "按天整理每一笔支出和收入。双击账目可以修改。" : "安排预算，管理分类，让账本安心留在本机。";
+            Text("PageSubtitle").Text = value == "home" ? (month.Month == DateTime.Today.Month && month.Year == DateTime.Today.Year ? "截至今天 · " + DateTime.Today.ToString("M 月 d 日") : "历史月份 · 整月汇总") : value == "ledger" ? "点击每日标题展开明细，点击“日期”倒序。双击账目可修改。" : "安排预算，管理分类，让账本安心留在本机。";
         }
         private void Refresh()
         {
@@ -310,7 +329,7 @@ namespace DailyLedger
                 string text = LedgerLogic.ParseDate(day.Key).ToString("M 月 d 日") + "   ·   支出 " + Money(day.Where(x => x.Kind == "expense").Sum(x => x.Amount));
                 decimal income = day.Where(x => x.Kind == "income").Sum(x => x.Amount);
                 if (income > 0) text += "  /  收入 " + Money(income);
-                var expand = new Expander { Header = text, IsExpanded = day.Key == LedgerLogic.DateKey(DateTime.Today), FontSize = 12, Margin = new Thickness(0, 0, 0, 9) };
+                var expand = new Expander { Header = text, IsExpanded = day.Key == days[0].Key, FontSize = 12, Margin = new Thickness(0, 0, 0, 9) };
                 var rows = new StackPanel { Margin = new Thickness(22, 5, 0, 0) };
                 foreach (var entry in day)
                 {
@@ -344,15 +363,31 @@ namespace DailyLedger
             string query = Input("SearchText").Text.Trim();
             Text("SearchHint").Visibility = Input("SearchText").Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
             if (query.Length > 0) filtered = filtered.Where(x => (x.Note + " " + LedgerLogic.CategoryName(data, x.CategoryId) + " " + x.Date).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0);
-            var entries = filtered.ToList();
+            var entries = (newestFirst ? filtered.OrderByDescending(x => x.Date) : filtered.OrderBy(x => x.Date)).ToList();
+            string latest = entries.Count == 0 ? null : entries.Max(x => x.Date);
+            var totals = all.GroupBy(x => x.Date).ToDictionary(x => x.Key, x => x.ToList());
+            var grid = Find<DataGrid>("EntriesGrid");
+            var selected = grid.SelectedItem as EntryRow;
             var rows = new List<EntryRow>();
             foreach (var group in entries.GroupBy(x => x.Date))
             {
-                string heading = LedgerLogic.ParseDate(group.Key).ToString("M 月 d 日 dddd") + "    支出 " + Money(group.Where(x => x.Kind == "expense").Sum(x => x.Amount)) + "    收入 " + Money(group.Where(x => x.Kind == "income").Sum(x => x.Amount));
-                rows.AddRange(group.Select(x => new EntryRow { Id = x.Id, Date = x.Date, DayGroup = heading, KindLabel = x.Kind == "expense" ? "支出" : "收入", CategoryName = LedgerLogic.CategoryName(data, x.CategoryId), AmountLabel = (x.Kind == "expense" ? "−" : "+") + x.Amount.ToString("N2"), Note = x.Note }));
+                bool expanded;
+                var day = new LedgerDay {
+                    Date = group.Key, DateLabel = LedgerLogic.ParseDate(group.Key).ToString("M 月 d 日 dddd"),
+                    Summary = "全天支出 " + Money(totals[group.Key].Where(x => x.Kind == "expense").Sum(x => x.Amount)) + "    收入 " + Money(totals[group.Key].Where(x => x.Kind == "income").Sum(x => x.Amount)),
+                    IsExpanded = expandedDays.TryGetValue(group.Key, out expanded) ? expanded : group.Key == latest
+                };
+                day.PropertyChanged += (sender, args) => {
+                    expandedDays[day.Date] = day.IsExpanded;
+                    var current = grid.SelectedItem as EntryRow;
+                    if (!day.IsExpanded && current != null && current.Date == day.Date) grid.SelectedItem = null;
+                };
+                rows.AddRange(group.Select(x => new EntryRow { Id = x.Id, Date = x.Date, DayGroup = day, KindLabel = x.Kind == "expense" ? "支出" : "收入", CategoryName = LedgerLogic.CategoryName(data, x.CategoryId), AmountLabel = (x.Kind == "expense" ? "−" : "+") + x.Amount.ToString("N2"), Note = x.Note }));
             }
             var view = new ListCollectionView(rows); view.GroupDescriptions.Add(new PropertyGroupDescription("DayGroup"));
-            Find<DataGrid>("EntriesGrid").ItemsSource = view;
+            grid.ItemsSource = view;
+            if (selected != null) grid.SelectedItem = rows.FirstOrDefault(x => x.Id == selected.Id && x.DayGroup.IsExpanded);
+            Button("DateSort").Content = newestFirst ? "日期 ↓ 近到远" : "日期 ↑ 远到近";
             Text("LedgerEmpty").Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             Text("LedgerEmpty").Text = all.Count == 0 ? "这个月还没有账目，去首页记下第一笔吧。" : "没有符合筛选条件的账目。";
             Text("FilterSummary").Text = "当前显示 " + entries.Count + " 笔 · 支出 " + Money(entries.Where(x => x.Kind == "expense").Sum(x => x.Amount)) + " · 收入 " + Money(entries.Where(x => x.Kind == "income").Sum(x => x.Amount));

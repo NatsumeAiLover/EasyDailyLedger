@@ -53,7 +53,11 @@ internal static class ThemeTests
             File.WriteAllText(preferences.FilePath, "{\"Version\":2,\"Theme\":\"dark\"}");
             Check(preferences.Load() == "light" && preferences.LoadNotice != null, "Unknown appearance version safely falls back");
             preferences.Save("dark");
-            foreach (string mode in new[] { "light", "dark" })
+            preferences.Save("green");
+            Check(new AppearanceStore(root).Load() == "green", "Original green dark mode persists as a separate choice");
+            preferences.Save("dark");
+            Check(AppTheme.Palette("dark")["Surface"].R == AppTheme.Palette("dark")["Surface"].G && AppTheme.Palette("green")["Surface"].G > AppTheme.Palette("green")["Surface"].R, "Charcoal dark is neutral and the original green palette remains available");
+            foreach (string mode in new[] { "light", "dark", "green" })
             {
                 var palette = AppTheme.Palette(mode);
                 foreach (string[] pair in new[] { new[] { "Ink", "Surface" }, new[] { "Muted", "Surface" }, new[] { "Ink", "InputBackground" }, new[] { "OnAccent", "Accent" }, new[] { "SelectionInk", "SelectionBackground" }, new[] { "Danger", "Surface" } })
@@ -83,7 +87,13 @@ internal static class ThemeTests
                 Check(ColorOf(Find<TextBox>(controller, "EntryAmount").Foreground) == AppTheme.Palette("light")["Ink"], "Existing input text updates to the light palette");
                 controller.ChangeTheme("dark");
                 Check(ColorOf(Find<TextBox>(controller, "EntryAmount").Foreground) == AppTheme.Palette("dark")["Ink"] && ColorOf(Find<TextBox>(controller, "EntryAmount").Background) == AppTheme.Palette("dark")["InputBackground"], "Existing input background and text update to the dark palette");
-                Check(Find<Button>(controller, "ToggleTheme").Content.ToString() == "切换浅色" && Find<ComboBox>(controller, "ThemeMode").SelectedIndex == 1, "Sidebar shortcut and settings selector stay synchronized");
+                Check(Find<Button>(controller, "ToggleTheme").Content.ToString() == "切换墨绿" && Find<ComboBox>(controller, "ThemeMode").SelectedIndex == 1, "Sidebar shortcut and settings selector stay synchronized");
+                Find<Button>(controller, "ToggleTheme").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Check(controller.CurrentTheme == "green" && Find<ComboBox>(controller, "ThemeMode").SelectedIndex == 2 && Object.ReferenceEquals(grid.SelectedItem, selected), "Shortcut switches to green without losing selection");
+                Find<Button>(controller, "ToggleTheme").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Check(controller.CurrentTheme == "light", "Shortcut cycles from green back to light");
+                Find<ComboBox>(controller, "ThemeMode").SelectedIndex = 1;
+                Check(controller.CurrentTheme == "dark", "Settings selector switches directly to charcoal dark");
                 Check(File.ReadAllText(store.FilePath) == financialBefore && Directory.GetFiles(store.BackupPath, "*.json").Length == 0, "Switching appearance never rewrites the ledger or adds financial backups");
                 var calendar = new System.Windows.Controls.Calendar { Style = Find<DatePicker>(controller, "EntryDate").CalendarStyle, DisplayDate = today };
                 Find<StackPanel>(controller, "CategoryBars").Children.Add(calendar);
