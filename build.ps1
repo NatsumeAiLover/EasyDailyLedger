@@ -1,8 +1,9 @@
-﻿$ErrorActionPreference = 'Stop'
+﻿param([string]$OutputDirectory)
+$ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
 $frameworkDir = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
 $compilerPath = Join-Path $frameworkDir 'csc.exe'
-$outputDir = Join-Path $projectRoot '发布'
+$outputDir = if ($OutputDirectory) { [System.IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $projectRoot '发布' }
 $testDir = Join-Path $projectRoot 'tests'
 New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
 $iconPath = Join-Path $projectRoot 'src\app.ico'
@@ -27,7 +28,7 @@ if (-not (Test-Path -LiteralPath $iconPath)) {
     $iconFile.Dispose(); $icon.Dispose(); $graphics.Dispose(); $bitmap.Dispose(); $greenBrush.Dispose(); $lightBrush.Dispose(); $pen.Dispose()
 }
 $references = @('System.dll','System.Core.dll','System.Xaml.dll','System.Web.Extensions.dll','WPF\WindowsBase.dll','WPF\PresentationCore.dll','WPF\PresentationFramework.dll') | ForEach-Object { '/reference:' + (Join-Path $frameworkDir $_) }
-$appArguments = @('/nologo','/target:winexe','/optimize+','/codepage:65001','/platform:anycpu',('/out:' + (Join-Path $outputDir '日常账本.exe')),('/win32manifest:' + (Join-Path $projectRoot 'src\app.manifest')),('/win32icon:' + $iconPath),('/resource:' + (Join-Path $projectRoot 'src\MainWindow.xaml') + ',DailyLedger.MainWindow.xaml'),('/resource:' + $iconPath + ',DailyLedger.app.ico')) + $references + @((Join-Path $projectRoot 'src\Core.cs'),(Join-Path $projectRoot 'src\App.cs'))
+$appArguments = @('/nologo','/target:winexe','/optimize+','/codepage:65001','/platform:anycpu',('/out:' + (Join-Path $outputDir '日常账本.exe')),('/win32manifest:' + (Join-Path $projectRoot 'src\app.manifest')),('/win32icon:' + $iconPath),('/resource:' + (Join-Path $projectRoot 'src\MainWindow.xaml') + ',DailyLedger.MainWindow.xaml'),('/resource:' + $iconPath + ',DailyLedger.app.ico')) + $references + @((Join-Path $projectRoot 'src\Core.cs'),(Join-Path $projectRoot 'src\Theme.cs'),(Join-Path $projectRoot 'src\App.cs'))
 & $compilerPath $appArguments
 if ($LASTEXITCODE -ne 0) { throw '应用编译失败。' }
 Copy-Item -LiteralPath (Join-Path $projectRoot '使用说明.txt') -Destination (Join-Path $outputDir '使用说明.txt') -Force
@@ -36,4 +37,10 @@ if (Test-Path -LiteralPath (Join-Path $testDir 'CoreTests.cs')) {
     $testArguments = @('/nologo','/target:exe','/optimize+','/codepage:65001',('/out:' + (Join-Path $testDir 'CoreTests.exe'))) + $references + @((Join-Path $projectRoot 'src\Core.cs'),(Join-Path $testDir 'CoreTests.cs'))
     & $compilerPath $testArguments
     if ($LASTEXITCODE -ne 0) { throw '测试编译失败。' }
+}
+
+if (Test-Path -LiteralPath (Join-Path $testDir 'ThemeTests.cs')) {
+    $themeTestArguments = @('/nologo','/target:exe','/main:ThemeTests','/optimize+','/codepage:65001',('/out:' + (Join-Path $testDir 'ThemeTests.exe')),('/resource:' + (Join-Path $projectRoot 'src\MainWindow.xaml') + ',DailyLedger.MainWindow.xaml'),('/resource:' + $iconPath + ',DailyLedger.app.ico')) + $references + @((Join-Path $projectRoot 'src\Core.cs'),(Join-Path $projectRoot 'src\Theme.cs'),(Join-Path $projectRoot 'src\App.cs'),(Join-Path $testDir 'ThemeTests.cs'))
+    & $compilerPath $themeTestArguments
+    if ($LASTEXITCODE -ne 0) { throw 'Theme tests failed to compile.' }
 }

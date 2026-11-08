@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-# 日常账本 v1.0
+# 日常账本 v1.1
 
 Windows 11 中文个人记账桌面工具，以天为单位记录收支，以月为单位管理预算与统计。采用 C#、WPF 和 .NET Framework，数据保存在本机。
 
@@ -9,6 +8,7 @@ Windows 11 中文个人记账桌面工具，以天为单位记录收支，以月
 - 月预算、预算余额、收支结余、日均支出与上月同期比较。
 - 每日账单分组、搜索筛选、修改删除及分类管理。
 - 自动备份、JSON完整备份恢复、中文CSV导出。
+- 浅色与深色切换、主题记忆；日历支持日期、月份和年份层级切换。
 
 ## 环境与构建
 
@@ -19,6 +19,7 @@ Windows 11 中文个人记账桌面工具，以天为单位记录收支，以月
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 & .\tests\CoreTests.exe
+& .\tests\ThemeTests.exe
 ```
 
 上面的执行策略参数仅对本次构建进程生效。
@@ -31,10 +32,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 - `tests/`：自动回归检查源码。
 - `build.ps1`：离线构建脚本。
 - `使用说明.txt`：记账、预算、备份及升级说明。
+- `升级日志-v1.1.txt`：1.1功能和日历修复记录。
 
 ## 版本说明
 
-这是2026年11月4日发布的1.0源码版本，提供浅色界面。源码从当时的原始编辑记录恢复，保留原版构建脚本。
+1.1在1.0基础上加入深色模式，并修复日历顶部年月按钮的视图切换。与1.0使用相同账本格式。
 
 ## 数据与Git
 
@@ -45,7 +47,3 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 ## 许可证
 
 本仓库尚未指定开源许可证。
-=======
-# -
-astra大人一轮跑出来的，自用记账本，发上来探究一下github的用法
->>>>>>> 22c3b8d1e32dcdf87951d0d3669070a3220cdcb5

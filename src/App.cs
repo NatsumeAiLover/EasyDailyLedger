@@ -16,8 +16,8 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("日常账本")]
 [assembly: AssemblyDescription("按天记录，按月安排的个人本机账本")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 
 namespace DailyLedger
 {
@@ -49,7 +49,7 @@ namespace DailyLedger
                 var controller = new LedgerWindow(store, data);
                 app.MainWindow = controller.Window;
                 app.DispatcherUnhandledException += (sender, eventArgs) => {
-                    MessageBox.Show(controller.Window, "操作未完成：\n" + eventArgs.Exception.Message, "日常账本", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    LedgerDialogs.Show(controller.Window, "操作未完成：\n" + eventArgs.Exception.Message, "日常账本", MessageBoxButton.OK, MessageBoxImage.Warning);
                     eventArgs.Handled = true;
                 };
                 app.Run(controller.Window);
@@ -80,10 +80,12 @@ namespace DailyLedger
         private DateTime month = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         private string entryKind = "expense", editId = null, page = "home";
         private bool refreshing;
-        private readonly Brush ink = BrushOf("#233731"), muted = BrushOf("#667970"), accent = BrushOf("#21685C"), soft = BrushOf("#E1EDE5"), danger = BrushOf("#A23D32");
+        private readonly AppearanceStore appearance;
+        private string theme;
+        private bool updatingThemeControls;
+        internal string CurrentTheme { get { return theme; } }
         private readonly System.Windows.Threading.DispatcherTimer dayTimer;
         private DateTime lastDay = DateTime.Today;
-        private static Brush BrushOf(string value) { return (Brush)new BrushConverter().ConvertFromString(value); }
         private T Find<T>(string name) where T : FrameworkElement { return (T)Window.FindName(name); }
         private TextBlock Text(string name) { return Find<TextBlock>(name); }
         private Button Button(string name) { return Find<Button>(name); }
@@ -95,17 +97,21 @@ namespace DailyLedger
         {
             this.store = store; this.data = data;
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("DailyLedger.MainWindow.xaml")) Window = (Window)XamlReader.Load(stream);
+            appearance = new AppearanceStore(store.DirectoryPath); theme = appearance.Load();
+            AppTheme.Apply(Window, theme); AppTheme.ConfigureWindow(Window);
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("DailyLedger.app.ico"))
                 if (stream != null) { var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze(); Window.Icon = bitmap; }
             Find<DatePicker>("EntryDate").SelectedDate = DateTime.Today;
             Find<DatePicker>("EntryDate").DisplayDateEnd = DateTime.Today;
             Select("FilterType").ItemsSource = new[] { "全部收支", "仅支出", "仅收入" }; Select("FilterType").SelectedIndex = 0;
             Select("CategoryKind").ItemsSource = new[] { "支出大类", "收入大类" }; Select("CategoryKind").SelectedIndex = 0;
+            Select("ThemeMode").ItemsSource = new[] { "浅色", "深色" }; UpdateThemeControls();
             WireEvents();
             EnsureBudget();
             RefreshCategories();
             SetKind("expense", null);
             Refresh();
+            if (appearance.LoadNotice != null) Text("StatusText").Text = appearance.LoadNotice;
             dayTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
             dayTimer.Tick += (sender, args) => {
                 if (DateTime.Today != lastDay)
@@ -119,7 +125,7 @@ namespace DailyLedger
             };
             dayTimer.Start();
             Window.Closing += (sender, args) => {
-                if (HasDraft() && MessageBox.Show(Window, "记账框中还有未保存的内容。确定关闭吗？", "还有未保存的账目", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) args.Cancel = true;
+                if (HasDraft() && LedgerDialogs.Show(Window, "记账框中还有未保存的内容。确定关闭吗？", "还有未保存的账目", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) args.Cancel = true;
             };
             Window.Closed += (sender, args) => dayTimer.Stop();
             Window.PreviewKeyDown += (sender, args) => {
@@ -131,6 +137,8 @@ namespace DailyLedger
             Button("NavHome").Click += (s, e) => ShowPage("home");
             Button("NavLedger").Click += (s, e) => ShowPage("ledger");
             Button("NavSettings").Click += (s, e) => ShowPage("settings");
+            Button("ToggleTheme").Click += (s, e) => ChangeTheme(theme == "dark" ? "light" : "dark");
+            Select("ThemeMode").SelectionChanged += (s, e) => { if (!updatingThemeControls && Select("ThemeMode").SelectedIndex >= 0) ChangeTheme(Select("ThemeMode").SelectedIndex == 1 ? "dark" : "light"); };
             Button("OpenAllEntries").Click += (s, e) => ShowPage("ledger");
             Button("PreviousMonth").Click += (s, e) => ChangeMonth(month.AddMonths(-1));
             Button("NextMonth").Click += (s, e) => ChangeMonth(month.AddMonths(1));
@@ -161,10 +169,33 @@ namespace DailyLedger
             Button("OpenBackupFolder").Click += (s, e) => Run(() => { Directory.CreateDirectory(store.BackupPath); OpenFolder(store.BackupPath); });
             Button("OpenDataFolder").Click += (s, e) => Run(() => OpenFolder(store.DirectoryPath));
         }
+        private void UpdateThemeControls()
+        {
+            updatingThemeControls = true;
+            try
+            {
+                Select("ThemeMode").SelectedIndex = theme == "dark" ? 1 : 0;
+                Button("ToggleTheme").Content = theme == "dark" ? "切换浅色" : "切换深色";
+            }
+            finally { updatingThemeControls = false; }
+        }
+        internal void ChangeTheme(string value)
+        {
+            if (value == theme) { UpdateThemeControls(); return; }
+            try { appearance.Save(value); }
+            catch (Exception error)
+            {
+                UpdateThemeControls();
+                LedgerDialogs.Show(Window, "未能保存外观选择：\n" + error.Message, "外观设置未保存", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            AppTheme.Apply(Window, value); theme = value; UpdateThemeControls();
+            Text("StatusText").Text = "已切换至" + (value == "dark" ? "深色" : "浅色") + "模式 · 下次打开会保持此选择";
+        }
         private void Run(Action action)
         {
             try { action(); }
-            catch (Exception error) { MessageBox.Show(Window, "操作未完成，原有已保存数据仍保留。\n\n" + error.Message, "日常账本", MessageBoxButton.OK, MessageBoxImage.Warning); }
+            catch (Exception error) { LedgerDialogs.Show(Window, "操作未完成，原有已保存数据仍保留。\n\n" + error.Message, "日常账本", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }
         private bool Commit(Action<LedgerData> mutate)
         {
@@ -174,7 +205,7 @@ namespace DailyLedger
                 Text("StatusText").Text = "已保存至本机 · " + DateTime.Now.ToString("HH:mm:ss") + "    数据位置：" + store.DirectoryPath;
                 return true;
             }
-            catch (Exception error) { MessageBox.Show(Window, "保存失败，本次更改尚未写入。\n\n" + error.Message, "保存未完成", MessageBoxButton.OK, MessageBoxImage.Warning); return false; }
+            catch (Exception error) { LedgerDialogs.Show(Window, "保存失败，本次更改尚未写入。\n\n" + error.Message, "保存未完成", MessageBoxButton.OK, MessageBoxImage.Warning); return false; }
         }
         private void EnsureBudget()
         {
@@ -193,9 +224,11 @@ namespace DailyLedger
             Find<ScrollViewer>("HomeView").Visibility = value == "home" ? Visibility.Visible : Visibility.Collapsed;
             Find<Grid>("LedgerView").Visibility = value == "ledger" ? Visibility.Visible : Visibility.Collapsed;
             Find<ScrollViewer>("SettingsView").Visibility = value == "settings" ? Visibility.Visible : Visibility.Collapsed;
-            Button("NavHome").Background = value == "home" ? Brushes.White : Brushes.Transparent;
-            Button("NavLedger").Background = value == "ledger" ? Brushes.White : Brushes.Transparent;
-            Button("NavSettings").Background = value == "settings" ? Brushes.White : Brushes.Transparent;
+            foreach (string name in new[] { "NavHome", "NavLedger", "NavSettings" })
+            {
+                bool selected = (name == "NavHome" && value == "home") || (name == "NavLedger" && value == "ledger") || (name == "NavSettings" && value == "settings");
+                if (selected) AppTheme.Bind(Button(name), Control.BackgroundProperty, "Surface"); else Button(name).Background = Brushes.Transparent;
+            }
             Text("PageTitle").Text = value == "home" ? "本月概览" : value == "ledger" ? "每日账单" : "设置与备份";
             Text("PageSubtitle").Text = value == "home" ? (month.Month == DateTime.Today.Month && month.Year == DateTime.Today.Year ? "截至今天 · " + DateTime.Today.ToString("M 月 d 日") : "历史月份 · 整月汇总") : value == "ledger" ? "按天整理每一笔支出和收入。双击账目可以修改。" : "安排预算，管理分类，让账本安心留在本机。";
         }
@@ -210,7 +243,7 @@ namespace DailyLedger
             Text("AverageHint").Text = summary.IsCurrent ? "按 1 日至今天计算，共 " + summary.ElapsedDays + " 天" : "按整月计算，共 " + summary.ElapsedDays + " 天";
             Text("RemainingLabel").Text = summary.Remaining.HasValue && summary.Remaining < 0 ? "已超预算" : "预算还剩";
             Text("RemainingValue").Text = summary.Remaining.HasValue ? Money(Math.Abs(summary.Remaining.Value)) : "待设置";
-            Text("RemainingValue").Foreground = summary.Remaining.HasValue && summary.Remaining < 0 ? danger : ink;
+            AppTheme.Bind(Text("RemainingValue"), TextBlock.ForegroundProperty, summary.Remaining.HasValue && summary.Remaining < 0 ? "Danger" : "Ink");
             if (!summary.Budget.HasValue) Text("FutureValue").Text = "设置预算后，即可计算每天可用金额";
             else if (!summary.IsCurrent) Text("FutureValue").Text = summary.Remaining >= 0 ? "该月预算节余" : "该月超出预算的金额";
             else if (summary.Remaining < 0) Text("FutureValue").Text = "本月预算已用完，可调整后续安排";
@@ -221,7 +254,7 @@ namespace DailyLedger
             Text("BudgetUsage").Text = summary.Budget.HasValue ? "月预算 " + budgetLabel + (summary.Budget > 0 ? " · 已用 " + (summary.Spent / summary.Budget.Value).ToString("P1") : " · 预算为零") : "尚未设置本月预算";
             Text("MonthElapsed").Text = summary.IsCurrent ? "本月已过 " + summary.ElapsedDays + " / " + DateTime.DaysInMonth(month.Year, month.Month) + " 天" : "该月份已结束";
             Find<ProgressBar>("BudgetProgress").Value = !summary.Budget.HasValue ? 0 : summary.Budget == 0 ? (summary.Spent > 0 ? 100 : 0) : (double)Math.Min(100m, summary.Spent / summary.Budget.Value * 100m);
-            Find<ProgressBar>("BudgetProgress").Foreground = summary.Remaining < 0 ? danger : accent;
+            AppTheme.Bind(Find<ProgressBar>("BudgetProgress"), Control.ForegroundProperty, summary.Remaining < 0 ? "Danger" : "Accent");
             Button("SetBudgetHome").Content = summary.Budget.HasValue ? "修改预算" : "设置预算";
             Text("IncomeSummary").Text = "本月收入 " + Money(summary.Income) + "     收支结余 " + Signed(summary.Net);
             Text("LedgerMonthSummary").Text = "支出 " + Money(summary.Spent) + "    收入 " + Money(summary.Income) + "    收支结余 " + Signed(summary.Net);
@@ -243,25 +276,27 @@ namespace DailyLedger
             string prefix = LedgerLogic.MonthKey(month) + "-";
             return data.Entries.Where(x => x.Date.StartsWith(prefix, StringComparison.Ordinal)).OrderByDescending(x => x.Date).ThenByDescending(x => x.CreatedAt).ToList();
         }
-        private TextBlock Label(string value, double size, Brush brush)
+        private TextBlock Label(string value, double size, string colorKey)
         {
-            return new TextBlock { Text = value, FontSize = size, Foreground = brush, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+            var label = new TextBlock { Text = value, FontSize = size, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+            AppTheme.Bind(label, TextBlock.ForegroundProperty, colorKey); return label;
         }
         private void RefreshBars(MonthSummary summary)
         {
             var panel = Find<StackPanel>("CategoryBars"); panel.Children.Clear();
             var groups = MonthEntries().Where(x => x.Kind == "expense").GroupBy(x => x.CategoryId).Select(g => new { Id = g.Key, Amount = g.Sum(x => x.Amount) }).OrderByDescending(x => x.Amount).ToList();
-            if (groups.Count == 0) { panel.Children.Add(Label("还没有支出。记下第一笔，看看钱花在哪里。", 12, muted)); return; }
+            if (groups.Count == 0) { panel.Children.Add(Label("还没有支出。记下第一笔，看看钱花在哪里。", 12, "Muted")); return; }
             foreach (var group in groups)
             {
                 var row = new Grid { Margin = new Thickness(0, 0, 0, 12) };
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
                 row.ColumnDefinitions.Add(new ColumnDefinition());
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
-                var name = Label(LedgerLogic.CategoryName(data, group.Id), 12, ink); name.Margin = new Thickness(0, 0, 10, 0); row.Children.Add(name);
-                var track = new ProgressBar { Value = summary.Spent > 0 ? (double)(group.Amount / summary.Spent * 100m) : 0, Height = 7, Maximum = 100, Background = BrushOf("#EDF2EF"), Foreground = accent, BorderThickness = new Thickness(0), VerticalAlignment = VerticalAlignment.Center };
+                var name = Label(LedgerLogic.CategoryName(data, group.Id), 12, "Ink"); name.Margin = new Thickness(0, 0, 10, 0); row.Children.Add(name);
+                var track = new ProgressBar { Value = summary.Spent > 0 ? (double)(group.Amount / summary.Spent * 100m) : 0, Height = 7, Maximum = 100, BorderThickness = new Thickness(0), VerticalAlignment = VerticalAlignment.Center };
+                AppTheme.Bind(track, Control.BackgroundProperty, "ProgressTrack"); AppTheme.Bind(track, Control.ForegroundProperty, "Accent");
                 Grid.SetColumn(track, 1); row.Children.Add(track);
-                var amount = Label(Money(group.Amount), 12, ink); amount.HorizontalAlignment = HorizontalAlignment.Right; Grid.SetColumn(amount, 2); row.Children.Add(amount);
+                var amount = Label(Money(group.Amount), 12, "Ink"); amount.HorizontalAlignment = HorizontalAlignment.Right; Grid.SetColumn(amount, 2); row.Children.Add(amount);
                 panel.Children.Add(row);
             }
         }
@@ -269,7 +304,7 @@ namespace DailyLedger
         {
             var panel = Find<StackPanel>("RecentDays"); panel.Children.Clear();
             var days = MonthEntries().GroupBy(x => x.Date).Take(5).ToList();
-            if (days.Count == 0) { panel.Children.Add(Label("这个月还没有账单。右侧可以直接记一笔。", 12, muted)); return; }
+            if (days.Count == 0) { panel.Children.Add(Label("这个月还没有账单。右侧可以直接记一笔。", 12, "Muted")); return; }
             foreach (var day in days)
             {
                 string text = LedgerLogic.ParseDate(day.Key).ToString("M 月 d 日") + "   ·   支出 " + Money(day.Where(x => x.Kind == "expense").Sum(x => x.Amount));
@@ -280,8 +315,8 @@ namespace DailyLedger
                 foreach (var entry in day)
                 {
                     var row = new DockPanel { Margin = new Thickness(0, 5, 0, 5), LastChildFill = true };
-                    var amount = Label((entry.Kind == "expense" ? "−" : "+") + Money(entry.Amount), 12, ink); amount.Margin = new Thickness(12, 0, 0, 0); DockPanel.SetDock(amount, Dock.Right); row.Children.Add(amount);
-                    row.Children.Add(Label(LedgerLogic.CategoryName(data, entry.CategoryId) + (String.IsNullOrWhiteSpace(entry.Note) ? "" : " · " + entry.Note), 12, muted)); rows.Children.Add(row);
+                    var amount = Label((entry.Kind == "expense" ? "−" : "+") + Money(entry.Amount), 12, "Ink"); amount.Margin = new Thickness(12, 0, 0, 0); DockPanel.SetDock(amount, Dock.Right); row.Children.Add(amount);
+                    row.Children.Add(Label(LedgerLogic.CategoryName(data, entry.CategoryId) + (String.IsNullOrWhiteSpace(entry.Note) ? "" : " · " + entry.Note), 12, "Muted")); rows.Children.Add(row);
                 }
                 expand.Content = rows; panel.Children.Add(expand);
             }
@@ -339,8 +374,8 @@ namespace DailyLedger
         {
             if (kind == entryKind && categoryId == null) categoryId = (Select("EntryCategory").SelectedItem as Category ?? new Category()).Id;
             entryKind = kind;
-            Button("ExpenseType").Background = kind == "expense" ? soft : BrushOf("#F1F4F2");
-            Button("IncomeType").Background = kind == "income" ? soft : BrushOf("#F1F4F2");
+            AppTheme.Bind(Button("ExpenseType"), Control.BackgroundProperty, kind == "expense" ? "AccentSoft" : "ButtonBackground");
+            AppTheme.Bind(Button("IncomeType"), Control.BackgroundProperty, kind == "income" ? "AccentSoft" : "ButtonBackground");
             Button("ExpenseType").FontWeight = kind == "expense" ? FontWeights.Medium : FontWeights.Normal;
             Button("IncomeType").FontWeight = kind == "income" ? FontWeights.Medium : FontWeights.Normal;
             Find<StackPanel>("EntryNotePanel").Visibility = kind == "expense" ? Visibility.Visible : Visibility.Collapsed;
@@ -350,7 +385,7 @@ namespace DailyLedger
             Button("SaveEntry").Content = editId != null ? "保存修改" : kind == "expense" ? "保存这笔支出" : "保存这笔收入";
         }
         private bool HasDraft() { return editId != null || !String.IsNullOrWhiteSpace(Input("EntryAmount").Text) || !String.IsNullOrWhiteSpace(Input("EntryNote").Text); }
-        private bool DiscardDraft() { return !HasDraft() || MessageBox.Show(Window, "放弃记账框中尚未保存的内容吗？", "未保存的账目", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes; }
+        private bool DiscardDraft() { return !HasDraft() || LedgerDialogs.Show(Window, "放弃记账框中尚未保存的内容吗？", "未保存的账目", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes; }
         private void ResetForm()
         {
             editId = null; Input("EntryAmount").Clear(); Input("EntryNote").Clear(); Find<DatePicker>("EntryDate").SelectedDate = DateTime.Today;
@@ -380,7 +415,7 @@ namespace DailyLedger
             Feedback((editing ? "已修改：" : "已保存：") + date.Value.ToString("M 月 d 日") + " · " + category.Name + " · " + Money(amount), false);
             Input("EntryAmount").Focus();
         }
-        private void Feedback(string value, bool error) { Text("EntryFeedback").Text = value; Text("EntryFeedback").Foreground = error ? danger : accent; }
+        private void Feedback(string value, bool error) { Text("EntryFeedback").Text = value; AppTheme.Bind(Text("EntryFeedback"), TextBlock.ForegroundProperty, error ? "Danger" : "Accent"); }
         private EntryRow SelectedRow() { return Find<DataGrid>("EntriesGrid").SelectedItem as EntryRow; }
         private void EditSelected()
         {
@@ -399,7 +434,7 @@ namespace DailyLedger
             var row = SelectedRow();
             if (row == null) { Text("StatusText").Text = "请先选中一笔账目，再点击删除。"; return; }
             var entry = data.Entries.First(x => x.Id == row.Id);
-            if (MessageBox.Show(Window, "删除这笔账目？\n\n" + entry.Date + " · " + LedgerLogic.CategoryName(data, entry.CategoryId) + " · " + Money(entry.Amount) + "\n\n删除前的账本会保留在自动备份中。", "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            if (LedgerDialogs.Show(Window, "删除这笔账目？\n\n" + entry.Date + " · " + LedgerLogic.CategoryName(data, entry.CategoryId) + " · " + Money(entry.Amount) + "\n\n删除前的账本会保留在自动备份中。", "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             if (Commit(next => next.Entries.RemoveAll(x => x.Id == row.Id))) { if (editId == row.Id) ResetForm(); Refresh(); }
         }
         private void SetBudget()
@@ -435,17 +470,17 @@ namespace DailyLedger
         private void ToggleCategory()
         {
             var category = Select("ManageCategory").SelectedItem as Category; if (category == null) return;
-            if (category.Active && data.Categories.Count(x => x.Kind == category.Kind && x.Active) <= 1) { MessageBox.Show(Window, "每种收支类型至少保留一个启用的大类。", "保留一个大类", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+            if (category.Active && data.Categories.Count(x => x.Kind == category.Kind && x.Active) <= 1) { LedgerDialogs.Show(Window, "每种收支类型至少保留一个启用的大类。", "保留一个大类", MessageBoxButton.OK, MessageBoxImage.Information); return; }
             if (Commit(next => next.Categories.First(x => x.Id == category.Id).Active = !category.Active)) { RefreshCategories(); Refresh(); }
         }
         private string Prompt(string title, string hint, string initial, Func<string, string> validate)
         {
-            var dialog = new Window { Owner = Window, Title = title, Width = 450, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = BrushOf("#F4F6F5"), FontFamily = Window.FontFamily, FontSize = 14, Resources = Window.Resources };
+            var dialog = LedgerDialogs.Create(Window, title, 450);
             var panel = new StackPanel { Margin = new Thickness(24) };
-            panel.Children.Add(new TextBlock { Text = title, FontSize = 21, Foreground = ink, Margin = new Thickness(0, 0, 0, 12) });
-            panel.Children.Add(new TextBlock { Text = hint, Foreground = muted, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 16) });
+            var heading = Label(title, 21, "Ink"); heading.Margin = new Thickness(0, 0, 0, 12); panel.Children.Add(heading);
+            var hintLabel = Label(hint, 12, "Muted"); hintLabel.Margin = new Thickness(0, 0, 0, 16); panel.Children.Add(hintLabel);
             var input = new TextBox { Text = initial, MaxLength = 50 }; panel.Children.Add(input);
-            var error = new TextBlock { Foreground = danger, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 12) }; panel.Children.Add(error);
+            var error = Label("", 12, "Danger"); error.Margin = new Thickness(0, 8, 0, 12); panel.Children.Add(error);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             var cancel = new Button { Content = "取消", IsCancel = true, Margin = new Thickness(0, 0, 8, 0) }; var save = new Button { Content = "保存", IsDefault = true, Style = (Style)Window.Resources["Primary"] };
             save.Click += (s, e) => { string message = validate(input.Text); if (message != null) { error.Text = message; return; } dialog.DialogResult = true; };
@@ -457,7 +492,7 @@ namespace DailyLedger
         {
             var dialog = new SaveFileDialog { Title = "备份全部账本数据", Filter = "账本备份 (*.json)|*.json", FileName = "日常账本备份-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".json", DefaultExt = ".json", AddExtension = true };
             if (dialog.ShowDialog(Window) != true) return;
-            Run(() => { if (IsInternalPath(dialog.FileName)) throw new InvalidOperationException("请选择“数据”文件夹之外的位置，避免覆盖正在使用的账本。" ); store.ExportBackup(data, dialog.FileName); Text("StatusText").Text = "完整备份已保存：" + dialog.FileName; MessageBox.Show(Window, "备份已保存。\n\n" + dialog.FileName, "备份完成", MessageBoxButton.OK, MessageBoxImage.Information); });
+            Run(() => { if (IsInternalPath(dialog.FileName)) throw new InvalidOperationException("请选择“数据”文件夹之外的位置，避免覆盖正在使用的账本。" ); store.ExportBackup(data, dialog.FileName); Text("StatusText").Text = "完整备份已保存：" + dialog.FileName; LedgerDialogs.Show(Window, "备份已保存。\n\n" + dialog.FileName, "备份完成", MessageBoxButton.OK, MessageBoxImage.Information); });
         }
         private bool IsInternalPath(string path)
         {
@@ -471,7 +506,7 @@ namespace DailyLedger
             Run(() => {
                 var restored = store.ReadBackup(dialog.FileName);
                 string description = "备份包含 " + restored.Entries.Count + " 笔账目、" + restored.Budgets.Count + " 个月的预算。\n\n恢复将替换当前账本，不会与现有账目合并。当前账本会先保留在自动备份中。\n\n确定恢复吗？";
-                if (MessageBox.Show(Window, description, "确认恢复备份", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+                if (LedgerDialogs.Show(Window, description, "确认恢复备份", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
                 store.Save(restored); data = restored; ResetForm(); EnsureBudget(); RefreshCategories(); Refresh(); Text("StatusText").Text = "已从备份恢复 · " + DateTime.Now.ToString("HH:mm:ss");
             });
         }
@@ -479,7 +514,7 @@ namespace DailyLedger
         {
             var dialog = new SaveFileDialog { Title = "导出本月全部账目", Filter = "Excel 可打开的表格 (*.csv)|*.csv", FileName = "日常账本-" + LedgerLogic.MonthKey(month) + ".csv", DefaultExt = ".csv", AddExtension = true };
             if (dialog.ShowDialog(Window) != true) return;
-            Run(() => { if (IsInternalPath(dialog.FileName)) throw new InvalidOperationException("请选择数据文件夹之外的位置。"); store.ExportCsv(data, MonthEntries(), dialog.FileName); Text("StatusText").Text = "已导出本月全部账目（不受筛选影响）：" + dialog.FileName; MessageBox.Show(Window, "已导出本月全部账目，可用 Excel 打开。\n\n" + dialog.FileName, "导出完成", MessageBoxButton.OK, MessageBoxImage.Information); });
+            Run(() => { if (IsInternalPath(dialog.FileName)) throw new InvalidOperationException("请选择数据文件夹之外的位置。"); store.ExportCsv(data, MonthEntries(), dialog.FileName); Text("StatusText").Text = "已导出本月全部账目（不受筛选影响）：" + dialog.FileName; LedgerDialogs.Show(Window, "已导出本月全部账目，可用 Excel 打开。\n\n" + dialog.FileName, "导出完成", MessageBoxButton.OK, MessageBoxImage.Information); });
         }
         private static void OpenFolder(string path) { Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true }); }
     }
