@@ -1,0 +1,29 @@
+# Build outputs and packages
+/发布/
+/artifacts/
+/bin/
+/obj/
+*.exe
+*.pdb
+*.zip
+# Personal ledger, backups and local preferences
+**/数据/
+**/自动备份/
+/upgrade-backups/
+**/账本*.json
+**/日常账本备份*.json
+**/外观设置*.json
+*.lock
+*.tmp
+*.csv
+# Generated test artifacts
+/tests/runs/
+/tests/theme-runs/
+/tests/界面测试/
+# Local editor files
+.vs/
+.idea/
+*.user
+*.suo
+Thumbs.db
+.DS_Store
