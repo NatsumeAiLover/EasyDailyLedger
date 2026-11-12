@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -17,8 +17,8 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("日常账本")]
 [assembly: AssemblyDescription("按天记录，按月安排的个人本机账本")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyFileVersion("1.3.0.0")]
 
 namespace DailyLedger
 {
@@ -86,7 +86,7 @@ namespace DailyLedger
         }
         public event PropertyChangedEventHandler PropertyChanged;
     }
-    internal sealed class LedgerWindow
+    internal sealed partial class LedgerWindow
     {
         private readonly LedgerStore store;
         private LedgerData data;
@@ -122,6 +122,7 @@ namespace DailyLedger
             Select("FilterType").ItemsSource = new[] { "全部收支", "仅支出", "仅收入" }; Select("FilterType").SelectedIndex = 0;
             Select("CategoryKind").ItemsSource = new[] { "支出大类", "收入大类" }; Select("CategoryKind").SelectedIndex = 0;
             Select("ThemeMode").ItemsSource = new[] { "浅色", "深色 · 黑灰", "深色 · 墨绿" }; UpdateThemeControls();
+            InitializeTrends();
             WireEvents();
             EnsureBudget();
             RefreshCategories();
@@ -209,6 +210,7 @@ namespace DailyLedger
                 return;
             }
             AppTheme.Apply(Window, value); theme = value; UpdateThemeControls();
+            if (page == "trends") RenderTrends();
             Text("StatusText").Text = "已切换至" + (value == "green" ? "墨绿深色" : value == "dark" ? "黑灰深色" : "浅色") + "模式 · 下次打开会保持此选择";
         }
         private void Run(Action action)
@@ -240,16 +242,20 @@ namespace DailyLedger
         private void ShowPage(string value)
         {
             page = value;
+            Find<ScrollViewer>("TrendsView").Visibility = value == "trends" ? Visibility.Visible : Visibility.Collapsed;
+            Find<StackPanel>("MonthToolbar").Visibility = value == "trends" ? Visibility.Collapsed : Visibility.Visible;
+            if (value == "trends") RenderTrends();
+            else if (expenseChart != null) expenseChart.Reset(expenseChart.Model, expenseChart.Compare);
             Find<ScrollViewer>("HomeView").Visibility = value == "home" ? Visibility.Visible : Visibility.Collapsed;
             Find<Grid>("LedgerView").Visibility = value == "ledger" ? Visibility.Visible : Visibility.Collapsed;
             Find<ScrollViewer>("SettingsView").Visibility = value == "settings" ? Visibility.Visible : Visibility.Collapsed;
-            foreach (string name in new[] { "NavHome", "NavLedger", "NavSettings" })
+            foreach (string name in new[] { "NavHome", "NavLedger", "NavTrends", "NavSettings" })
             {
-                bool selected = (name == "NavHome" && value == "home") || (name == "NavLedger" && value == "ledger") || (name == "NavSettings" && value == "settings");
+                bool selected = (name == "NavHome" && value == "home") || (name == "NavLedger" && value == "ledger") || (name == "NavSettings" && value == "settings") || (name == "NavTrends" && value == "trends");
                 if (selected) AppTheme.Bind(Button(name), Control.BackgroundProperty, "Surface"); else Button(name).Background = Brushes.Transparent;
             }
-            Text("PageTitle").Text = value == "home" ? "本月概览" : value == "ledger" ? "每日账单" : "设置与备份";
-            Text("PageSubtitle").Text = value == "home" ? (month.Month == DateTime.Today.Month && month.Year == DateTime.Today.Year ? "截至今天 · " + DateTime.Today.ToString("M 月 d 日") : "历史月份 · 整月汇总") : value == "ledger" ? "点击每日标题展开明细，点击“日期”倒序。双击账目可修改。" : "安排预算，管理分类，让账本安心留在本机。";
+            Text("PageTitle").Text = value == "home" ? "本月概览" : value == "ledger" ? "每日账单" : value == "trends" ? "支出走势" : "设置与备份";
+            Text("PageSubtitle").Text = value == "home" ? (month.Month == DateTime.Today.Month && month.Year == DateTime.Today.Year ? "截至今天 · " + DateTime.Today.ToString("M 月 d 日") : "历史月份 · 整月汇总") : value == "ledger" ? "点击每日标题展开明细，点击“日期”倒序。双击账目可修改。" : value == "trends" ? "按日、按月比较开支，找到支出变化。" : "安排预算，管理分类，让账本安心留在本机。";
         }
         private void Refresh()
         {

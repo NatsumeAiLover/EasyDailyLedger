@@ -1,4 +1,4 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:p="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework" Title="日常账本 1.2" Width="1220" Height="850" MinWidth="1020" MinHeight="700" WindowStartupLocation="CenterScreen" FontFamily="Microsoft YaHei UI, Segoe UI" FontSize="14" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource Ink}" Language="zh-CN">
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:p="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework" Title="日常账本 1.3" Width="1220" Height="850" MinWidth="1020" MinHeight="700" WindowStartupLocation="CenterScreen" FontFamily="Microsoft YaHei UI, Segoe UI" FontSize="14" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource Ink}" Language="zh-CN">
   <Window.Resources>
     <SolidColorBrush x:Key="Ink" Color="#233731"/>
     <SolidColorBrush x:Key="Muted" Color="#667970"/>
@@ -76,8 +76,8 @@
     <Border Background="{DynamicResource SidebarBackground}" Padding="16,30,16,20">
       <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Top" Margin="8,0,0,36"><TextBlock Text="日常账本" FontSize="24" FontWeight="Medium"/><TextBlock Text="把每一天，记清楚。" Foreground="{DynamicResource Muted}" FontSize="11" Margin="1,8,0,0"/></StackPanel>
-        <StackPanel DockPanel.Dock="Bottom" Margin="8,0,0,0"><Button x:Name="ToggleTheme" Content="切换黑灰" Padding="10,9" FontSize="12" HorizontalContentAlignment="Center" Margin="0,0,0,16" ToolTip="依次切换浅色、黑灰深色、墨绿深色，并记住选择"/><TextBlock Text="本机保存 · 无需联网" FontSize="11" Foreground="{DynamicResource Muted}"/><TextBlock Text="Daily Ledger  1.2" FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,6,0,0"/></StackPanel>
-        <StackPanel><Button x:Name="NavHome" Content="首页概览" Style="{StaticResource Nav}"/><Button x:Name="NavLedger" Content="每日账单" Style="{StaticResource Nav}"/><Button x:Name="NavSettings" Content="设置与备份" Style="{StaticResource Nav}"/></StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Margin="8,0,0,0"><Button x:Name="ToggleTheme" Content="切换黑灰" Padding="10,9" FontSize="12" HorizontalContentAlignment="Center" Margin="0,0,0,16" ToolTip="依次切换浅色、黑灰深色、墨绿深色，并记住选择"/><TextBlock Text="本机保存 · 无需联网" FontSize="11" Foreground="{DynamicResource Muted}"/><TextBlock Text="Daily Ledger  1.3" FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,6,0,0"/></StackPanel>
+        <StackPanel><Button x:Name="NavHome" Content="首页概览" Style="{StaticResource Nav}"/><Button x:Name="NavLedger" Content="每日账单" Style="{StaticResource Nav}"/><Button x:Name="NavTrends" Content="支出走势" Style="{StaticResource Nav}"/><Button x:Name="NavSettings" Content="设置与备份" Style="{StaticResource Nav}"/></StackPanel>
       </DockPanel>
     </Border>
     <Grid Grid.Column="1" Margin="28,24,28,12">
@@ -141,13 +141,38 @@
         </Grid></Border>
         <Grid Grid.Row="3" Margin="0,14,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="FilterSummary" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource Muted}"/><StackPanel Grid.Column="1" Orientation="Horizontal"><Button x:Name="EditEntry" Content="修改选中账目"/><Button x:Name="DeleteEntry" Content="删除" Margin="8,0,0,0" Foreground="{DynamicResource Danger}"/></StackPanel></Grid>
       </Grid>
+      <ScrollViewer x:Name="TrendsView" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,5,0">
+        <StackPanel>
+          <WrapPanel Margin="0,0,0,16">
+            <Button x:Name="TrendDaily" Content="按日" Margin="0,0,8,8"/><Button x:Name="TrendMonthly" Content="按月" Margin="0,0,24,8"/>
+            <CheckBox x:Name="TrendCompare" Content="对比上月" Foreground="{DynamicResource Ink}" VerticalAlignment="Center" Margin="0,0,0,8"/>
+          </WrapPanel>
+          <WrapPanel Margin="0,0,0,8">
+            <StackPanel Margin="0,0,10,8"><TextBlock Text="年份" Style="{StaticResource Label}" Margin="0,0,0,5"/><ComboBox x:Name="TrendYear" Width="105" AutomationProperties.Name="走势年份"/></StackPanel>
+            <StackPanel x:Name="TrendMonthField" Margin="0,0,16,8"><TextBlock Text="月份" Style="{StaticResource Label}" Margin="0,0,0,5"/><ComboBox x:Name="TrendMonth" Width="80" AutomationProperties.Name="走势月份"/></StackPanel>
+            <Button x:Name="TrendPrevious" Content="‹ 上一月" VerticalAlignment="Bottom" Margin="0,0,8,8"/><Button x:Name="TrendNext" Content="下一月 ›" VerticalAlignment="Bottom" Margin="0,0,8,8"/><Button x:Name="TrendToday" Content="本月" VerticalAlignment="Bottom" Margin="0,0,0,8"/>
+          </WrapPanel>
+          <TextBlock x:Name="TrendRange" Foreground="{DynamicResource Muted}" Margin="2,0,0,14"/>
+          <Grid Margin="0,0,0,16"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <Border Style="{StaticResource Panel}" Margin="0,0,8,0"><StackPanel><TextBlock Text="所选期间总支出" Style="{StaticResource Label}"/><TextBlock x:Name="TrendTotal" FontSize="27" FontWeight="Medium" Margin="0,10,0,0" TextWrapping="Wrap"/></StackPanel></Border>
+            <Border Grid.Column="1" Style="{StaticResource Panel}" Margin="8,0,0,0"><StackPanel><TextBlock x:Name="TrendPeakLabel" Style="{StaticResource Label}" TextWrapping="Wrap"/><TextBlock x:Name="TrendPeak" FontSize="20" Margin="0,10,0,0" TextWrapping="Wrap"/></StackPanel></Border>
+          </Grid>
+          <Border Style="{StaticResource Panel}"><StackPanel>
+            <TextBlock x:Name="TrendLegend" TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <Border x:Name="TrendChartHost"/>
+            <TextBlock x:Name="TrendDetail" TextWrapping="Wrap" Margin="0,12,0,12"/>
+            <Button x:Name="TrendOpenLedger" Content="查看对应账单 →" HorizontalAlignment="Left" IsEnabled="False"/>
+          </StackPanel></Border>
+          <TextBlock x:Name="TrendRules" Foreground="{DynamicResource Muted}" FontSize="12" LineHeight="23" TextWrapping="Wrap" Margin="2,14,2,12"/>
+        </StackPanel>
+      </ScrollViewer>
       <ScrollViewer x:Name="SettingsView" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,5,0">
         <StackPanel>
           <Border Style="{StaticResource Panel}" Margin="0,0,0,16"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="140"/></Grid.ColumnDefinitions><StackPanel Margin="0,0,20,0"><TextBlock Text="外观" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/><TextBlock Text="浅色、黑灰深色、墨绿深色；重开后保持上次选择。" Style="{StaticResource Label}"/></StackPanel><ComboBox x:Name="ThemeMode" Grid.Column="1" VerticalAlignment="Center" AutomationProperties.Name="外观模式"/></Grid></Border>
           <Border Style="{StaticResource Panel}" Margin="0,0,0,16"><StackPanel><TextBlock Text="本月预算" Style="{StaticResource SectionTitle}"/><DockPanel><Button x:Name="SetBudgetSettings" Content="修改预算" DockPanel.Dock="Right"/><StackPanel><TextBlock x:Name="SettingsBudget" FontSize="21"/><TextBlock Text="收入不自动增加预算；新月份沿用最近一个月的预算，剩余金额不自动累加。" Style="{StaticResource Label}" Margin="0,6,12,0"/></StackPanel></DockPanel></StackPanel></Border>
           <Border Style="{StaticResource Panel}" Margin="0,0,0,16"><StackPanel><TextBlock Text="管理大类" Style="{StaticResource SectionTitle}"/><TextBlock Text="重命名会同步更新历史账目。停用的大类仍保留历史记录，也可以重新启用。" Style="{StaticResource Label}" Margin="0,0,0,12"/><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="CategoryKind" AutomationProperties.Name="管理大类类型"/><ComboBox x:Name="ManageCategory" Grid.Column="1" Margin="10,0,0,0" AutomationProperties.Name="管理大类选择"/><Button x:Name="AddCategory" Grid.Column="2" Content="新增" Margin="10,0,0,0"/><Button x:Name="RenameCategory" Grid.Column="3" Content="改名" Margin="7,0,0,0"/><Button x:Name="ToggleCategory" Grid.Column="4" Content="停用 / 启用" Margin="7,0,0,0"/></Grid></StackPanel></Border>
           <Border Style="{StaticResource Panel}" Margin="0,0,0,16"><StackPanel><TextBlock Text="备份与恢复" Style="{StaticResource SectionTitle}"/><TextBlock Text="每次更改都会保留上一版账本。手动备份包含全部账目、预算和大类，可用于换电脑或恢复数据。" Style="{StaticResource Label}" Margin="0,0,0,14"/><WrapPanel><Button x:Name="ManualBackup" Content="备份全部数据" Style="{StaticResource Primary}" Margin="0,0,8,8"/><Button x:Name="RestoreBackup" Content="从备份恢复" Margin="0,0,8,8"/><Button x:Name="OpenBackupFolder" Content="查看自动备份" Margin="0,0,8,8"/></WrapPanel><TextBlock x:Name="DataLocation" Style="{StaticResource Label}" Margin="0,8,0,0" TextWrapping="Wrap"/><Button x:Name="OpenDataFolder" Content="打开数据文件夹" HorizontalAlignment="Left" Margin="0,12,0,0"/></StackPanel></Border>
-          <Border Style="{StaticResource Panel}"><StackPanel><TextBlock Text="统计口径" Style="{StaticResource SectionTitle}"/><TextBlock Text="预算剩余 = 本月预算 − 本月支出&#10;收支结余 = 本月收入 − 本月支出，不代表银行卡余额&#10;日均支出按从月初到今天的自然天数计算，未消费的日期也计入天数&#10;剩余每天可用按明天至月底计算；历史月份展示整月汇总&#10;当前月份对比上月相同日期范围；历史月份对比上月整月" Foreground="{DynamicResource Muted}" FontSize="12" LineHeight="25"/><TextBlock Text="个人本机账本 · 版本 1.2.0" Style="{StaticResource Label}" Margin="0,15,0,0"/></StackPanel></Border>
+          <Border Style="{StaticResource Panel}"><StackPanel><TextBlock Text="统计口径" Style="{StaticResource SectionTitle}"/><TextBlock Text="预算剩余 = 本月预算 − 本月支出&#10;收支结余 = 本月收入 − 本月支出，不代表银行卡余额&#10;日均支出按从月初到今天的自然天数计算，未消费的日期也计入天数&#10;剩余每天可用按明天至月底计算；历史月份展示整月汇总&#10;当前月份对比上月相同日期范围；历史月份对比上月整月" Foreground="{DynamicResource Muted}" FontSize="12" LineHeight="25"/><TextBlock Text="个人本机账本 · 版本 1.3.0" Style="{StaticResource Label}" Margin="0,15,0,0"/></StackPanel></Border>
         </StackPanel>
       </ScrollViewer>
       <TextBlock x:Name="StatusText" Grid.Row="2" Text="准备就绪" FontSize="11" Foreground="{DynamicResource Muted}" Margin="2,12,0,0" TextTrimming="CharacterEllipsis"/>

@@ -28,7 +28,7 @@ if (-not (Test-Path -LiteralPath $iconPath)) {
     $iconFile.Dispose(); $icon.Dispose(); $graphics.Dispose(); $bitmap.Dispose(); $greenBrush.Dispose(); $lightBrush.Dispose(); $pen.Dispose()
 }
 $references = @('System.dll','System.Core.dll','System.Xaml.dll','System.Web.Extensions.dll','WPF\WindowsBase.dll','WPF\PresentationCore.dll','WPF\PresentationFramework.dll') | ForEach-Object { '/reference:' + (Join-Path $frameworkDir $_) }
-$appArguments = @('/nologo','/target:winexe','/optimize+','/codepage:65001','/platform:anycpu',('/out:' + (Join-Path $outputDir '日常账本.exe')),('/win32manifest:' + (Join-Path $projectRoot 'src\app.manifest')),('/win32icon:' + $iconPath),('/resource:' + (Join-Path $projectRoot 'src\MainWindow.xaml') + ',DailyLedger.MainWindow.xaml'),('/resource:' + $iconPath + ',DailyLedger.app.ico')) + $references + @((Join-Path $projectRoot 'src\Core.cs'),(Join-Path $projectRoot 'src\Theme.cs'),(Join-Path $projectRoot 'src\App.cs'))
+$appArguments = @('/nologo','/target:winexe','/optimize+','/codepage:65001','/platform:anycpu',('/out:' + (Join-Path $outputDir '日常账本.exe')),('/win32manifest:' + (Join-Path $projectRoot 'src\app.manifest')),('/win32icon:' + $iconPath),('/resource:' + (Join-Path $projectRoot 'src\MainWindow.xaml') + ',DailyLedger.MainWindow.xaml'),('/resource:' + $iconPath + ',DailyLedger.app.ico')) + $references + @((Join-Path $projectRoot 'src\Core.cs'),(Join-Path $projectRoot 'src\Theme.cs'),(Join-Path $projectRoot 'src\App.cs'),(Join-Path $projectRoot 'src\Trends.cs'),(Join-Path $projectRoot 'src\TrendsPage.cs'))
 & $compilerPath $appArguments
 if ($LASTEXITCODE -ne 0) { throw '应用编译失败。' }
 Copy-Item -LiteralPath (Join-Path $projectRoot '使用说明.txt') -Destination (Join-Path $outputDir '使用说明.txt') -Force
@@ -41,7 +41,12 @@ if (Test-Path -LiteralPath (Join-Path $testDir 'CoreTests.cs')) {
 
 foreach ($uiTestName in @('ThemeTests','LedgerTests')) {
     if (-not (Test-Path -LiteralPath (Join-Path $testDir ($uiTestName + '.cs')))) { continue }
-    $themeTestArguments = @('/nologo','/target:exe',('/main:' + $uiTestName),'/optimize+','/codepage:65001',('/out:' + (Join-Path $testDir ($uiTestName + '.exe'))),('/resource:' + (Join-Path $projectRoot 'src\MainWindow.xaml') + ',DailyLedger.MainWindow.xaml'),('/resource:' + $iconPath + ',DailyLedger.app.ico')) + $references + @((Join-Path $projectRoot 'src\Core.cs'),(Join-Path $projectRoot 'src\Theme.cs'),(Join-Path $projectRoot 'src\App.cs'),(Join-Path $testDir ($uiTestName + '.cs')))
+    $themeTestArguments = @('/nologo','/target:exe',('/main:' + $uiTestName),'/optimize+','/codepage:65001',('/out:' + (Join-Path $testDir ($uiTestName + '.exe'))),('/resource:' + (Join-Path $projectRoot 'src\MainWindow.xaml') + ',DailyLedger.MainWindow.xaml'),('/resource:' + $iconPath + ',DailyLedger.app.ico')) + $references + @((Join-Path $projectRoot 'src\Core.cs'),(Join-Path $projectRoot 'src\Theme.cs'),(Join-Path $projectRoot 'src\App.cs'),(Join-Path $projectRoot 'src\Trends.cs'),(Join-Path $projectRoot 'src\TrendsPage.cs'),(Join-Path $testDir ($uiTestName + '.cs')))
     & $compilerPath $themeTestArguments
     if ($LASTEXITCODE -ne 0) { throw 'Theme tests failed to compile.' }
 }
+
+$trendLogicArguments = @('/nologo','/target:exe','/optimize+','/codepage:65001',('/out:' + (Join-Path $testDir 'TrendLogicTests.exe'))) + $references + @((Join-Path $projectRoot 'src\Core.cs'),(Join-Path $projectRoot 'src\Trends.cs'),(Join-Path $testDir 'TrendLogicTests.cs'))
+& $compilerPath $trendLogicArguments
+if ($LASTEXITCODE -ne 0) { throw 'Trend logic tests failed to compile.' }
+
