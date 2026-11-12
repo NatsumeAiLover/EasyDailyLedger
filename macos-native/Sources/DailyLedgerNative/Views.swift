@@ -321,7 +321,10 @@ struct TrendView: View {
 
 struct LedgerSettingsView: View {
     @EnvironmentObject var model: LedgerModel
-    @State private var budget = "", kind = "expense", categoryID = "", categoryName = ""
+    @State private var budget = ""
+    @State private var kind = "expense"
+    @State private var categoryID = ""
+    @State private var categoryName = ""
     private var selectedCategory: LedgerCategory? { model.data.Categories.first { $0.Id == categoryID } }
     var body: some View {
         ScrollView {

@@ -33,11 +33,14 @@ struct EntryDraft: Equatable {
     @Published var month = LedgerDate.month()
     @Published var theme: LedgerTheme = .light
     @Published var draft = EntryDraft()
-    @Published var filterKind = "", filterCategory = "", search = ""
+    @Published var filterKind = ""
+    @Published var filterCategory = ""
+    @Published var search = ""
     @Published var newestFirst = true
     @Published var expanded: [String: Bool] = [:]
     @Published var trendPeriod = LedgerDate.month()
-    @Published var trendMonthly = false, trendCompare = false
+    @Published var trendMonthly = false
+    @Published var trendCompare = false
     @Published var trendSelected: Int? = nil
     @Published var status = "本机保存 · 无需联网"
     private var fileStore: LedgerFileStore?
