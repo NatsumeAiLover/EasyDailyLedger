@@ -6,7 +6,7 @@ SwiftUI 界面、Swift Charts 折线图、AppKit 文件选择与系统窗口、F
 
 ## 使用发布包
 
-下载 Release 中的“DailyLedger-1.3.0-macOS27-arm64.zip”，完整解压后运行安装脚本。构建过程已经完成 ad-hoc 签名验证，但没有 Developer ID 签名或 Apple 公证。详见“使用说明.txt”。
+下载 [v1.3 Release](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/tag/v1.3) 中的“DailyLedger-1.3.0-macOS27-arm64.zip”，完整解压后运行安装脚本。构建过程已经完成 ad-hoc 签名验证，但没有 Developer ID 签名或 Apple 公证。详见“使用说明.txt”。
 
 账目位置是 `~/Library/Application Support/DailyLedgerNative`。与之前 Electron 版独立，迁移时通过 JSON 完整备份恢复。兼容 Windows v1.0—v1.3 的 Version=1 数据字段，金额用 Decimal 读写、整数分计算。没有样例账目或云服务。
 
@@ -24,9 +24,11 @@ bash scripts/build-macos.sh
 
 ## GitHub 自动构建
 
-仓库根目录 `.github/workflows/macos-native.yml` 在 `codex/macos-native-1.3` 分支的原生文件更新时运行，或手动运行。
+仓库根目录 `.github/workflows/macos-native.yml` 改为手动运行。进入 Actions，选择“Build native macOS ledger”，填写已有 Release 标签（默认 `v1.3`）。默认只生成构建附件；需要发布时再勾选 publish。标签须与应用版本匹配。
 
-流程：Mac 环境运行 XCTest → Release 原生编译 → codesign 验证 → 打包匹配源码 → 上传 Actions 附件 → 发布标记为预发布的独立 macOS 原生版本。现有 Windows 源码不被覆盖。预发布的标签为 `v1.3.0-macos-native-<运行编号>`，指向本次构建的提交。
+流程：Mac 环境运行 XCTest → Release 原生编译 → codesign 验证 → 打包匹配源码 → 上传构建附件。选择发布时，将 Mac 应用、源码和框架说明更新到已有的同版本 Release，合并 SHA256 校验清单并保留 Windows 等其他附件，不创建独立的 Mac 预发布条目。
+
+Windows 和 Mac v1.3 下载统一放在同一个 v1.3 Release。主分支同时保留两平台源码；历史 v1.0、v1.1、v1.2 Release 继续保留。
 
 ## 功能
 

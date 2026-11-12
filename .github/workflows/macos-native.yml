@@ -1,17 +1,25 @@
 name: Build native macOS ledger
 
 on:
-  push:
-    branches: ["codex/macos-native-1.3"]
-    paths: ["macos-native/**", ".github/workflows/macos-native.yml"]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing version Release to receive the Mac files
+        required: true
+        default: v1.3
+        type: string
+      publish:
+        description: Update Mac assets in that existing Release (otherwise build artifacts only)
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
 
 concurrency:
-  group: native-macos-${{ github.ref }}
-  cancel-in-progress: true
+  group: native-macos-${{ inputs.release_tag }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -19,10 +27,18 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Report Apple toolchain
+      - name: Check target version
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          PUBLISH: ${{ inputs.publish }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          uname -m
-          xcodebuild -version
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' macos-native/Resources/Info.plist)
+          if [[ "$RELEASE_TAG" != "v$VERSION" && "$RELEASE_TAG" != "v${VERSION%.0}" ]]; then
+            echo 'The Release tag must match the application version.'
+            exit 1
+          fi
+          if [[ "$PUBLISH" == true ]]; then gh release view "$RELEASE_TAG"; fi
           swift --version
       - name: Test native ledger core
         working-directory: macos-native
@@ -32,13 +48,14 @@ jobs:
         run: bash scripts/build-macos.sh
       - name: Package matching native source
         run: |
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' macos-native/Resources/Info.plist)
           mkdir -p native-source/.github/workflows
           cp .github/workflows/macos-native.yml native-source/.github/workflows/
           rsync -a --exclude=.build --exclude=.swiftpm --exclude=release macos-native native-source/
-          ditto -c -k --sequesterRsrc --keepParent native-source macos-native/release/DailyLedger-1.3.0-native-source.zip
+          ditto -c -k --sequesterRsrc --keepParent native-source "macos-native/release/DailyLedger-$VERSION-native-source.zip"
           cd macos-native/release
-          shasum -a 256 DailyLedger-1.3.0-native-source.zip >> SHA256SUMS.txt
-      - name: Upload release files
+          shasum -a 256 "DailyLedger-$VERSION-native-source.zip" >> SHA256SUMS.txt
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: DailyLedger-native-macOS27-arm64
@@ -47,17 +64,10 @@ jobs:
             macos-native/release/SHA256SUMS.txt
             macos-native/release/linked-frameworks.txt
           if-no-files-found: error
-      - name: Publish native prerelease
+      - name: Update Mac files in the existing version Release
+        if: inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="v1.3.0-macos-native-${GITHUB_RUN_NUMBER}"
-          cat > release-notes.md <<'NOTES'
-          SwiftUI + Swift Charts 原生版，面向 macOS 27 / Apple Silicon。
-          包含原生 .app、安装说明、完整源码及 SHA256。
-          使用系统组件，无 Chromium、Electron、Node 或 WebKit。
-          已在 GitHub 的 Mac 环境编译、执行核心检查并完成 ad-hoc 签名验证。
-          未获 Developer ID 签名、未公证；未进行图形界面操作或 macOS 27 真机验收。
-          解压后按说明运行安装脚本。数据可从 Windows/Electron JSON 完整备份导入。
-          NOTES
-          gh release create "$TAG" macos-native/release/*.zip macos-native/release/SHA256SUMS.txt macos-native/release/linked-frameworks.txt --target "$GITHUB_SHA" --title "日常账本 v1.3 · Apple 原生版" --notes-file release-notes.md --prerelease
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: node macos-native/scripts/publish-release.mjs
