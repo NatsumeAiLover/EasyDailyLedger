@@ -1,0 +1,8 @@
+.build/
+.swiftpm/
+release/
+.DS_Store
+数据/
+自动备份/
+账本*.json
+外观设置*.json

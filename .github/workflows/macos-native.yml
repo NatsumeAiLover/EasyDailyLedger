@@ -1,0 +1,63 @@
+name: Build native macOS ledger
+
+on:
+  push:
+    branches: ["codex/macos-native-1.3"]
+    paths: ["macos-native/**", ".github/workflows/macos-native.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: native-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report Apple toolchain
+        run: |
+          uname -m
+          xcodebuild -version
+          swift --version
+      - name: Test native ledger core
+        working-directory: macos-native
+        run: swift test --parallel
+      - name: Build and sign native application
+        working-directory: macos-native
+        run: bash scripts/build-macos.sh
+      - name: Package matching native source
+        run: |
+          mkdir -p native-source/.github/workflows
+          cp .github/workflows/macos-native.yml native-source/.github/workflows/
+          rsync -a --exclude=.build --exclude=.swiftpm --exclude=release macos-native native-source/
+          ditto -c -k --sequesterRsrc --keepParent native-source macos-native/release/日常账本-v1.3-macOS-原生源码.zip
+          cd macos-native/release
+          shasum -a 256 日常账本-v1.3-macOS-原生源码.zip >> SHA256SUMS.txt
+      - name: Upload release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: DailyLedger-native-macOS27-arm64
+          path: |
+            macos-native/release/*.zip
+            macos-native/release/SHA256SUMS.txt
+            macos-native/release/linked-frameworks.txt
+          if-no-files-found: error
+      - name: Publish native prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v1.3.0-macos-native-${GITHUB_RUN_NUMBER}"
+          cat > release-notes.md <<'NOTES'
+          SwiftUI + Swift Charts 原生版，面向 macOS 27 / Apple Silicon。
+          包含原生 .app、安装说明、完整源码及 SHA256。
+          使用系统组件，无 Chromium、Electron、Node 或 WebKit。
+          已在 GitHub 的 Mac 环境编译、执行核心检查并完成 ad-hoc 签名验证。
+          未获 Developer ID 签名、未公证；未进行图形界面操作或 macOS 27 真机验收。
+          解压后按说明运行安装脚本。数据可从 Windows/Electron JSON 完整备份导入。
+          NOTES
+          gh release create "$TAG" macos-native/release/*.zip macos-native/release/SHA256SUMS.txt macos-native/release/linked-frameworks.txt --target "$GITHUB_SHA" --title "日常账本 v1.3 · Apple 原生版" --notes-file release-notes.md --prerelease
