@@ -6,7 +6,7 @@ SwiftUI 界面、Swift Charts 折线图、AppKit 文件选择与系统窗口、F
 
 ## 使用发布包
 
-下载 Release 中的“日常账本-v1.3.0-macOS27-原生版-AppleSilicon.zip”，完整解压后运行安装脚本。构建过程已经完成 ad-hoc 签名验证，但没有 Developer ID 签名或 Apple 公证。详见“使用说明.txt”。
+下载 Release 中的“DailyLedger-1.3.0-macOS27-arm64.zip”，完整解压后运行安装脚本。构建过程已经完成 ad-hoc 签名验证，但没有 Developer ID 签名或 Apple 公证。详见“使用说明.txt”。
 
 账目位置是 `~/Library/Application Support/DailyLedgerNative`。与之前 Electron 版独立，迁移时通过 JSON 完整备份恢复。兼容 Windows v1.0—v1.3 的 Version=1 数据字段，金额用 Decimal 读写、整数分计算。没有样例账目或云服务。
 

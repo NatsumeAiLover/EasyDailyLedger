@@ -21,6 +21,6 @@ if grep -E 'Electron|Chromium|WebKit' "$DIST/linked-frameworks.txt"; then echo '
 cp 使用说明.txt "$STAGE/使用说明.txt"
 cp 安装到我的应用.command "$STAGE/安装到我的应用.command"
 chmod 755 "$STAGE/安装到我的应用.command"
-ditto -c -k --sequesterRsrc --keepParent "$STAGE" "$DIST/日常账本-v${VERSION}-macOS27-原生版-AppleSilicon.zip"
-( cd "$DIST"; shasum -a 256 "日常账本-v${VERSION}-macOS27-原生版-AppleSilicon.zip" > SHA256SUMS.txt )
-du -h "$DIST/日常账本-v${VERSION}-macOS27-原生版-AppleSilicon.zip"
+ditto -c -k --sequesterRsrc --keepParent "$STAGE" "$DIST/DailyLedger-${VERSION}-macOS27-arm64.zip"
+( cd "$DIST"; shasum -a 256 "DailyLedger-${VERSION}-macOS27-arm64.zip" > SHA256SUMS.txt )
+du -h "$DIST/DailyLedger-${VERSION}-macOS27-arm64.zip"
