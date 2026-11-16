@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -209,16 +209,22 @@ namespace DailyLedger
         }
         public void ExportCsv(LedgerData data, IEnumerable<Entry> entries, string path)
         {
-            var csv = new StringBuilder("日期,类型,大类,金额（元）,备注\r\n");
+            var csv = new StringBuilder("日期,收支类别,类别,金额,备注\r\n");
             foreach (var entry in entries.OrderBy(x => x.Date).ThenBy(x => x.CreatedAt))
-                csv.Append(String.Join(",", new[] { CsvCell(entry.Date), CsvCell(entry.Kind == "expense" ? "支出" : "收入"), CsvCell(LedgerLogic.CategoryName(data, entry.CategoryId)), CsvCell(entry.Amount.ToString("0.00", CultureInfo.InvariantCulture)), CsvCell(entry.Note) })).Append("\r\n");
-            File.WriteAllText(path, csv.ToString(), new UTF8Encoding(true));
+                csv.Append(String.Join(",", new[] { CsvCell(LedgerLogic.ParseDate(entry.Date).ToString("yyyy'年'M'月'd'日'", CultureInfo.InvariantCulture)), CsvCell(entry.Kind == "expense" ? "支出" : "收入"), CsvCell(LedgerLogic.CategoryName(data, entry.CategoryId)), CsvCell(entry.Amount.ToString("0.00", CultureInfo.InvariantCulture)), CsvCell(entry.Note) })).Append("\r\n");
+            string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllText(temporary, csv.ToString(), new UTF8Encoding(true));
+                if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
         }
         public static string CsvCell(string value)
         {
             value = value ?? "";
             string trimmed = value.TrimStart();
-            if (trimmed.Length > 0 && "=+-@".IndexOf(trimmed[0]) >= 0) value = "'" + value;
+            if (value.StartsWith("'", StringComparison.Ordinal) || (trimmed.Length > 0 && "=+-@".IndexOf(trimmed[0]) >= 0)) value = "'" + value;
             return "\"" + value.Replace("\"", "\"\"") + "\"";
         }
         public void Dispose() { instanceLock.Dispose(); }

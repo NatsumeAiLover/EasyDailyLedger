@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -111,6 +111,32 @@ internal static class LedgerTests
                 Click(controller, "EditEntry");
                 Check(Find<TextBox>(controller, "EntryAmount").Text == "30.00" && Find<TextBox>(controller, "EntryNote").Text == "最新一天", "Expanded rows still open the correct transaction for editing");
                 typeof(LedgerWindow).GetMethod("ResetForm", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(controller, null);
+                string csvFile = Path.Combine(root, "ui-import.csv");
+                File.WriteAllText(csvFile, "日期,收支类别,类别,金额,备注\r\n" + DateTime.Today.ToString("yyyy年M月d日") + ",支出,导入的新类别,12.34,界面导入测试\r\n", new System.Text.UTF8Encoding(true));
+                var prepared = LedgerCsv.PrepareImport(store, store.Load(), csvFile);
+                string beforeFailure = File.ReadAllText(store.FilePath);
+                using (var locked = new FileStream(store.FilePath, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    bool failed = false; try { controller.ApplyCsvImport(prepared); } catch (IOException) { failed = true; }
+                    Check(failed, "UI import reports save failure before replacing in-memory ledger");
+                }
+                Check(File.ReadAllText(store.FilePath) == beforeFailure && Find<DataGrid>(controller, "EntriesGrid").Items.Count == 4, "Failed UI import leaves disk and visible entries untouched");
+                controller.ApplyCsvImport(prepared);
+                Click(controller, "CurrentMonth"); Click(controller, "NavLedger"); Layout(controller, 1220);
+                Check(Find<DataGrid>(controller, "EntriesGrid").Items.Cast<EntryRow>().Any(x => x.Note == "界面导入测试" && x.CategoryName == "导入的新类别" && x.AmountLabel.Contains("12.34")), "Imported entry appears with correct date, category and cents after UI refresh");
+                Check(Find<ComboBox>(controller, "EntryCategory").Items.Cast<Category>().Any(x => x.Name == "导入的新类别") && Find<ComboBox>(controller, "ManageCategory").Items.Cast<Category>().Any(x => x.Name == "导入的新类别"), "Imported category becomes selectable in entry form and settings");
+                Click(controller, "NavSettings");
+                foreach (string mode in new[] { "light", "dark", "green" })
+                {
+                    controller.ChangeTheme(mode); Layout(controller, 1020);
+                    Find<Button>(controller, "ImportCsv").BringIntoView(); Layout(controller, 1020);
+                    Check(Find<Button>(controller, "ImportCsv").ActualWidth > 90 && Find<Button>(controller, "ExportAllCsv").ActualWidth > 90, "CSV controls lay out at minimum width in " + mode);
+                    Snapshot(controller, Path.Combine(root, "csv-settings-" + mode + ".png"));
+                }
+                Check(controller.Window.Title.Contains("1.4"), "Window identifies the Windows 1.4 release");
+                controller.Window.Close();
+                controller = new LedgerWindow(store, store.Load()); Click(controller, "NavLedger"); Layout(controller, 1220);
+                Check(Find<DataGrid>(controller, "EntriesGrid").Items.Cast<EntryRow>().Any(x => x.Note == "界面导入测试"), "Imported transaction remains visible after reopening");
                 controller.Window.Close();
             }
             app.Shutdown();

@@ -17,8 +17,8 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("日常账本")]
 [assembly: AssemblyDescription("按天记录，按月安排的个人本机账本")]
-[assembly: AssemblyVersion("1.3.0.0")]
-[assembly: AssemblyFileVersion("1.3.0.0")]
+[assembly: AssemblyVersion("1.4.0.1")]
+[assembly: AssemblyFileVersion("1.4.0.1")]
 
 namespace DailyLedger
 {
@@ -176,6 +176,8 @@ namespace DailyLedger
                 if (ItemsControl.ContainerFromElement(Find<DataGrid>("EntriesGrid"), e.OriginalSource as DependencyObject) is DataGridRow) EditSelected();
             };
             Button("ExportMonth").Click += (s, e) => ExportMonth();
+            Button("ImportCsv").Click += (s, e) => ImportCsv();
+            Button("ExportAllCsv").Click += (s, e) => ExportCsv(false);
             Select("CategoryKind").SelectionChanged += (s, e) => { if (!refreshing) RefreshManageCategories(); };
             Select("ManageCategory").SelectionChanged += (s, e) => {
                 var category = Select("ManageCategory").SelectedItem as Category;
@@ -551,11 +553,37 @@ namespace DailyLedger
                 store.Save(restored); data = restored; ResetForm(); EnsureBudget(); RefreshCategories(); Refresh(); Text("StatusText").Text = "已从备份恢复 · " + DateTime.Now.ToString("HH:mm:ss");
             });
         }
-        private void ExportMonth()
+        private void ImportCsv()
         {
-            var dialog = new SaveFileDialog { Title = "导出本月全部账目", Filter = "Excel 可打开的表格 (*.csv)|*.csv", FileName = "日常账本-" + LedgerLogic.MonthKey(month) + ".csv", DefaultExt = ".csv", AddExtension = true };
+            if (!DiscardDraft()) return;
+            var dialog = new OpenFileDialog { Title = "导入 CSV 账目", Filter = "CSV 表格 (*.csv)|*.csv", CheckFileExists = true };
             if (dialog.ShowDialog(Window) != true) return;
-            Run(() => { if (IsInternalPath(dialog.FileName)) throw new InvalidOperationException("请选择数据文件夹之外的位置。"); store.ExportCsv(data, MonthEntries(), dialog.FileName); Text("StatusText").Text = "已导出本月全部账目（不受筛选影响）：" + dialog.FileName; LedgerDialogs.Show(Window, "已导出本月全部账目，可用 Excel 打开。\n\n" + dialog.FileName, "导出完成", MessageBoxButton.OK, MessageBoxImage.Information); });
+            Run(() => {
+                var imported = LedgerCsv.PrepareImport(store, data, dialog.FileName);
+                string description = "检查通过：" + imported.EntryCount + " 笔账目。\n新增类别 " + imported.NewCategoryCount + " 个，重新启用类别 " + imported.ReactivatedCategoryCount + " 个。\n\n导入会追加到现有账本，保留原有账目和预算。重复导入同一文件会重复记账。\n当前账本会先保留在自动备份中。\n\n确定导入吗？";
+                if (LedgerDialogs.Show(Window, description, "确认导入 CSV", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+                ApplyCsvImport(imported);
+                LedgerDialogs.Show(Window, "已导入 " + imported.EntryCount + " 笔账目。\n可在每日账单切换月份查看；新增类别已加入设置。", "导入完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            });
+        }
+        internal void ApplyCsvImport(CsvImportResult imported)
+        {
+            store.Save(imported.Data); data = imported.Data;
+            ResetForm(); RefreshCategories(); Refresh();
+            Text("StatusText").Text = "已导入 " + imported.EntryCount + " 笔账目 · 新增类别 " + imported.NewCategoryCount + " 个";
+        }
+        private void ExportMonth() { ExportCsv(true); }
+        private void ExportCsv(bool onlyMonth)
+        {
+            string scope = onlyMonth ? "本月全部账目" : "全部账目";
+            var dialog = new SaveFileDialog { Title = "导出" + scope, Filter = "CSV 表格 (*.csv)|*.csv", FileName = "日常账本-" + (onlyMonth ? LedgerLogic.MonthKey(month) : "全部账目") + ".csv", DefaultExt = ".csv", AddExtension = true };
+            if (dialog.ShowDialog(Window) != true) return;
+            Run(() => {
+                if (IsInternalPath(dialog.FileName)) throw new InvalidOperationException("请选择数据文件夹之外的位置。");
+                store.ExportCsv(data, onlyMonth ? MonthEntries() : data.Entries, dialog.FileName);
+                Text("StatusText").Text = "已导出" + scope + "（不受筛选影响）：" + dialog.FileName;
+                LedgerDialogs.Show(Window, "已导出" + scope + "，可用 Excel 打开，也可重新导入。\n\n" + dialog.FileName, "导出完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            });
         }
         private static void OpenFolder(string path) { Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true }); }
     }
