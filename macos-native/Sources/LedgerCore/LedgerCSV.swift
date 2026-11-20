@@ -31,7 +31,7 @@ public enum LedgerCSV {
         else if bytes.starts(with: [0xfe, 0xff]) { value = String(data: bytes.dropFirst(2), encoding: .utf16BigEndian) }
         else if let utf8 = String(data: bytes, encoding: .utf8) { value = utf8 }
         else {
-            let encoding = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncodings.GB_18030_2000.rawValue))
+            let encoding = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue)))
             value = String(data: bytes, encoding: encoding)
         }
         guard let value else { throw LedgerError("无法识别 CSV 编码，请另存为 UTF-8 CSV 后导入。") }
