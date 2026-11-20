@@ -1,11 +1,11 @@
-# 简易记账本 v1.4
+﻿# 简易记账本 v1.4
 ## 说在前面
 依旧AI分得全部功劳，本人苦广告久矣，因此做出本记账软件，并且发来github正好学学github的用法，未来还希望学习编程。
 
 ## 本软件介绍（下面由AI生成）
 此软件Windows中文本机账本，使用C#、WPF、.NET Framework 4.8桌面组件。免安装，无需联网或账户。
 
-## v1.4 更新（Windows）
+## v1.4 更新（Windows / macOS）
 
 增加 CSV 文件的导入、导出：在“设置与备份”中导入数据或导出全部账目，在“每日账单”中导出所选月份的全部账目。
 
@@ -24,7 +24,7 @@
 - 栏目顺序不限，“账户”等额外栏目忽略。导入兼容逗号或制表符分列，以及 UTF-8、带 BOM 的 UTF-16、GBK/GB18030 编码；导出采用逗号分列的 UTF-8 BOM 文件。
 - 导入前检查整份文件并确认后追加，保留原账目和预算；重复导入会重复记账。完整数据迁移仍使用 JSON 备份。
 
-Windows 下载：[v1.4 Release](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/tag/v1.4)。
+Windows / macOS 下载：[v1.4 Release](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/tag/v1.4)。
 
 ## v1.3新增
 
@@ -64,18 +64,18 @@ CsvTests、ThemeTests、LedgerTests也会编译；可运行 test.ps1 执行全�
 
 ## macOS 原生版
 
-v1.3 同时提供 Windows 版和 Apple 原生 Mac 版，两者统一在 [v1.3 Release](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/tag/v1.3) 下载；v1.0、v1.1、v1.2 继续保留。
+Mac 原生版也更新到 v1.4，支持同样的 CSV 导入与导出，与 Windows 版统一在 [v1.4 Release](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/tag/v1.4) 下载。历史发布继续保留。
 
-Mac 版使用 SwiftUI、Swift Charts、AppKit 和 Foundation，直接调用系统组件，不附带 Electron、Chromium 或 Node.js。面向 **macOS 27、Apple Silicon**，应用压缩包约 **378 KB**。
+Mac 版使用 SwiftUI、Swift Charts、AppKit 和 Foundation，直接调用系统组件，不附带 Electron、Chromium 或 Node.js。面向 **macOS 27、Apple Silicon**，应用压缩包以发布附件标示的大小为准。
 
 ### 下载与安装
 
 | 文件 | 用途 |
 | --- | --- |
-| [EasyDailyLedger-v1.3.exe](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/download/v1.3/EasyDailyLedger-v1.3.exe) | Windows 版程序 |
-| [DailyLedger-1.3.0-macOS27-arm64.zip](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/download/v1.3/DailyLedger-1.3.0-macOS27-arm64.zip) | Mac 原生应用和安装说明 |
-| [DailyLedger-1.3.0-native-source.zip](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/download/v1.3/DailyLedger-1.3.0-native-source.zip) | Mac 完整源码与构建流程 |
-| [SHA256SUMS.txt](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/download/v1.3/SHA256SUMS.txt) | 发布附件的 SHA256 校验值 |
+| [EasyDailyLedger-v1.4.exe](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/download/v1.4/EasyDailyLedger-v1.4.exe) | Windows v1.4 程序 |
+| [DailyLedger-1.4.0-macOS27-arm64.zip](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/download/v1.4/DailyLedger-1.4.0-macOS27-arm64.zip) | Mac 原生应用和安装说明 |
+| [DailyLedger-1.4.0-native-source.zip](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/download/v1.4/DailyLedger-1.4.0-native-source.zip) | Mac 完整源码与构建流程 |
+| [SHA256SUMS.txt](https://github.com/NatsumeAiLover/EasyDailyLedger/releases/download/v1.4/SHA256SUMS.txt) | 发布附件的 SHA256 校验值 |
 
 Mac 下载后请完整解压，按包内说明运行“安装到我的应用.command”。程序已完成 ad-hoc 临时签名，**没有 Developer ID 签名或 Apple 公证**；如遇系统拦截，请先确认文件来源，再按说明安装。安装脚本不更改系统安全设置。
 
@@ -83,11 +83,11 @@ Mac 下载后请完整解压，按包内说明运行“安装到我的应用.com
 
 Mac 版提供首页概览、每日账单、支出走势、设置与备份，支持日／月折线、上月／上年对比、预算、分类管理、三种主题以及 JSON 备份恢复。
 
-数据保存在 `~/Library/Application Support/DailyLedgerNative`，与应用分开存放。迁移时，在 Windows 版导出完整 JSON 备份，再在 Mac 版的“设置与备份”中恢复。兼容 Windows v1.0—v1.3 的 Version=1 账本。恢复会替换当前数据并先保留原文件；CSV 只供查看，不用于恢复。数据没有加密，重要备份请另存到其他磁盘。
+数据保存在 `~/Library/Application Support/DailyLedgerNative`，与应用分开存放。迁移时，在 Windows 版导出完整 JSON 备份，再在 Mac 版的“设置与备份”中恢复。兼容 Windows v1.0—v1.4 的 Version=1 账本。JSON 恢复会替换当前数据并先保留原文件；CSV 可追加导入账目，但不包含预算等完整配置。数据没有加密，重要备份请另存到其他磁盘。
 
 ### 源码与验证
 
-主分支的 [macos-native](macos-native) 目录包含 Mac 原生源码；[Mac 版说明](macos-native/README.md)提供本机编译步骤和构建流程介绍。原生版已在 GitHub 的 Mac 环境完成编译，37 项核心检查通过，并完成临时签名验证；尚未进行 macOS 27 真机和图形界面操作验收。
+主分支的 [macos-native](macos-native) 目录包含 Mac 原生源码；[Mac 版说明](macos-native/README.md)提供本机编译步骤和构建流程介绍。原生版已在 GitHub 的 Mac 环境完成编译，核心及 CSV 回归检查通过后打包发布，并完成临时签名验证；尚未进行 macOS 27 真机和图形界面操作验收。
 
-GitHub Actions 的“Build native macOS ledger”现在改为手动构建。需要发布时选择已有的同版本 Release（默认 `v1.3`），Mac 附件会更新到该版本下，不再按构建次数新增独立的 Mac 预发布条目。
+GitHub Actions 的“Build native macOS ledger”现在改为手动构建。需要发布时选择已有的同版本 Release（默认 `v1.4`），Mac 附件会更新到该版本下，不再按构建次数新增独立的 Mac 预发布条目。
 

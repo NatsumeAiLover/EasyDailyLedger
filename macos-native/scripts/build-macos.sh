@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-VERSION=1.3.0
+VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
 DIST="$PWD/release"
 STAGE="$DIST/stage"
 APP="$STAGE/日常账本.app"
@@ -19,6 +19,8 @@ file "$APP/Contents/MacOS/DailyLedgerNative"
 otool -L "$APP/Contents/MacOS/DailyLedgerNative" | tee "$DIST/linked-frameworks.txt"
 if grep -E 'Electron|Chromium|WebKit' "$DIST/linked-frameworks.txt"; then echo 'Unexpected browser runtime'; exit 1; fi
 cp 使用说明.txt "$STAGE/使用说明.txt"
+cp CSV导入模板.csv "$STAGE/CSV导入模板.csv"
+cp CSV格式示例.csv "$STAGE/CSV格式示例.csv"
 cp 安装到我的应用.command "$STAGE/安装到我的应用.command"
 chmod 755 "$STAGE/安装到我的应用.command"
 ditto -c -k --sequesterRsrc --keepParent "$STAGE" "$DIST/DailyLedger-${VERSION}-macOS27-arm64.zip"

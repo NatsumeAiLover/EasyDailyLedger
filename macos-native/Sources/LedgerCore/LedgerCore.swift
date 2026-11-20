@@ -180,16 +180,8 @@ public enum LedgerLogic {
         }
         return ExpenseTrend(period: start, previousPeriod: previous, monthly: monthly, current: series(start), previous: series(previous))
     }
-    public static func csv(_ data: LedgerData, month: String) -> String {
-        func cell(_ input: String) -> String {
-            var value = input
-            if let first = input.trimmingCharacters(in: .whitespacesAndNewlines).first, "=+-@".contains(first) { value = "'" + value }
-            return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
-        }
-        let lines = data.Entries.filter { $0.Date.hasPrefix(month + "-") }.sorted { $0.Date < $1.Date }.map { e in
-            [e.Date, e.Kind == "expense" ? "支出" : "收入", data.categoryName(e.CategoryId), Money.input(e.cents), e.Note].map(cell).joined(separator: ",")
-        }
-        return "\u{feff}日期,类型,大类,金额（元）,备注\r\n" + lines.joined(separator: "\r\n")
+    public static func csv(_ data: LedgerData, month: String? = nil) -> String {
+        LedgerCSV.export(data, month: month)
     }
 }
 

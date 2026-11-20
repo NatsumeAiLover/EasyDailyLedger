@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Existing version Release to receive the Mac files
         required: true
-        default: v1.3
+        default: v1.4
         type: string
       publish:
         description: Update Mac assets in that existing Release (otherwise build artifacts only)

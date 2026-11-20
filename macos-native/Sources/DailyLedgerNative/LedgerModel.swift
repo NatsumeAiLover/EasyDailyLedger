@@ -94,7 +94,7 @@ struct EntryDraft: Equatable {
                 guard saved.id == nil || original != nil else { throw LedgerError("原账目不存在。") }
                 guard let category = next.Categories.first(where: { $0.Id == saved.category && $0.Kind == saved.kind }), category.Active || original?.CategoryId == category.Id else { throw LedgerError("请选择启用的大类。") }
                 var entry = original ?? LedgerEntry(date: date, kind: saved.kind, category: saved.category, cents: cents, note: "")
-                entry.Date = date; entry.Kind = saved.kind; entry.CategoryId = saved.category; entry.Amount = Decimal(cents) / 100; entry.Note = saved.kind == "expense" ? saved.note : ""
+                entry.Date = date; entry.Kind = saved.kind; entry.CategoryId = saved.category; entry.Amount = Decimal(cents) / 100; entry.Note = saved.note
                 if let index = next.Entries.firstIndex(where: { $0.Id == entry.Id }) { next.Entries[index] = entry } else { next.Entries.append(entry) }
                 LedgerLogic.inheritBudget(&next, month: String(date.prefix(7)))
             }) { month = String(date.prefix(7)); resetDraft() }
@@ -154,12 +154,39 @@ struct EntryDraft: Equatable {
         }
     }
     private func checkExportURL(_ url: URL) throws {
-        guard let store = fileStore, url.standardizedFileURL != store.file.standardizedFileURL else { throw LedgerError("请勿覆盖正在使用的账本文件。") }
+        guard let store = fileStore else { throw LedgerError("数据目录不可用。") }
+        let target = url.standardizedFileURL.resolvingSymlinksInPath().path
+        let directory = store.directory.standardizedFileURL.resolvingSymlinksInPath().path
+        guard target != directory, !target.hasPrefix(directory + "/") else { throw LedgerError("请选择数据文件夹之外的位置，避免覆盖账本或配置。") }
     }
-    func exportCSV() {
+    func importCSV() {
+        guard ready, discardDraft() else { return }
         perform {
-            let panel = NSSavePanel(); panel.allowedContentTypes = [.commaSeparatedText]; panel.nameFieldStringValue = "账单-\(month).csv"
-            if panel.runModal() == .OK, let url = panel.url { try checkExportURL(url); try Data(LedgerLogic.csv(data, month: month).utf8).write(to: url, options: .atomic); status = "已导出整月账单" }
+            let panel = NSOpenPanel(); panel.allowedContentTypes = [.commaSeparatedText, .tabSeparatedText, .plainText]
+            panel.title = "导入 CSV 账目"; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size <= 64_000_000 else { throw LedgerError("CSV 文件不能超过64 MB。") }
+            let imported = try LedgerCSV.prepareImport(Data(contentsOf: url, options: .mappedIfSafe), into: data)
+            guard confirm("确认导入 CSV？", detail: "检查通过：\(imported.entryCount) 笔账目；新增类别 \(imported.newCategoryCount) 个，重新启用类别 \(imported.reactivatedCategoryCount) 个。\n\n导入会追加到账本，保留原账目和预算，先保存自动备份。重复导入同一文件会重复记账。", action: "导入") else { return }
+            if commit({ $0 = imported.data }) {
+                resetDraft(); expanded = [:]; filterKind = ""; filterCategory = ""; search = ""
+                if let latest = imported.data.Entries.suffix(imported.entryCount).map({ $0.Date }).max() { month = String(latest.prefix(7)) }
+                status = "已导入 \(imported.entryCount) 笔账目 · 新增类别 \(imported.newCategoryCount) 个"
+            }
+        }
+    }
+    func exportCSV(all: Bool = false) {
+        guard ready else { return }
+        perform {
+            let panel = NSSavePanel(); panel.allowedContentTypes = [.commaSeparatedText]
+            panel.title = all ? "导出全部账目" : "导出本月全部账目"
+            panel.nameFieldStringValue = all ? "日常账本-全部账目.csv" : "日常账本-\(month).csv"
+            if panel.runModal() == .OK, let url = panel.url {
+                try checkExportURL(url)
+                try Data(LedgerLogic.csv(data, month: all ? nil : month).utf8).write(to: url, options: .atomic)
+                status = all ? "已导出全部账目 CSV" : "已导出本月全部账目 CSV（不受筛选影响）"
+            }
         }
     }
     func openFolder(backups: Bool = false) {

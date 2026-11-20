@@ -29,7 +29,7 @@ struct RootView: View {
                         .buttonStyle(.plain).listRowBackground(model.page == page ? model.theme.accent.opacity(0.16) : Color.clear)
                 }
                 Picker("外观", selection: Binding(get: { model.theme }, set: { model.saveTheme($0) })) { ForEach(LedgerTheme.allCases) { Text($0.title).tag($0) } }.labelsHidden().padding(.horizontal)
-                Text("本机保存 · Apple 原生\nDaily Ledger 1.3").font(.caption2).foregroundStyle(.secondary).padding(18)
+                Text("本机保存 · Apple 原生\nDaily Ledger 1.4").font(.caption2).foregroundStyle(.secondary).padding(18)
             }.navigationSplitViewColumnWidth(min: 168, ideal: 180, max: 210)
         } detail: {
             VStack(alignment: .leading, spacing: 18) {
@@ -129,7 +129,7 @@ struct EntryForm: View {
             Picker("类型", selection: Binding(get: { model.draft.kind }, set: { model.setKind($0) })) { Text("支出").tag("expense"); Text("收入").tag("income") }.pickerStyle(.segmented)
             VStack(alignment: .leading) { Text("金额（元）").font(.caption).foregroundStyle(.secondary); TextField("0.00", text: $model.draft.amount).font(.title2).textFieldStyle(.roundedBorder) }
             Picker("大类", selection: $model.draft.category) { ForEach(categories) { Text($0.Name + ($0.Active ? "" : " · 已停用")).tag($0.Id) } }
-            if model.draft.kind == "expense" { TextField("做了什么 · 选填", text: $model.draft.note).textFieldStyle(.roundedBorder) }
+            TextField("做了什么 · 选填", text: $model.draft.note).textFieldStyle(.roundedBorder)
             DatePicker("日期", selection: $model.draft.date, in: (LedgerDate.parse("1900-01-01") ?? Date())...Date(), displayedComponents: .date)
             Button(model.draft.id == nil ? "保存这笔\(model.draft.kind == "expense" ? "支出" : "收入")" : "保存修改") { model.saveEntry() }.buttonStyle(.borderedProminent).frame(maxWidth: .infinity)
             if model.draft.id != nil { Button("取消修改") { if model.discardDraft() { model.resetDraft() } } }
@@ -163,7 +163,7 @@ struct LedgerView: View {
     var body: some View {
         VStack(spacing: 16) {
             LedgerCard {
-                HStack { Text("支出 \(Money.display(model.summary.spent))　收入 \(Money.display(model.summary.income))　结余 \(Money.display(model.summary.net))"); Spacer(); Button("导出本月表格") { model.exportCSV() } }
+                HStack { Text("支出 \(Money.display(model.summary.spent))　收入 \(Money.display(model.summary.income))　结余 \(Money.display(model.summary.net))"); Spacer(); Button("导出本月 CSV") { model.exportCSV() } }
             }
             HStack(spacing: 12) {
                 Picker("类型", selection: $model.filterKind) { Text("全部收支").tag(""); Text("仅支出").tag("expense"); Text("仅收入").tag("income") }.frame(width: 130).onChange(of: model.filterKind) { _, _ in model.filterCategory = "" }
@@ -354,8 +354,15 @@ struct LedgerSettingsView: View {
                     Text("停用保留历史账目，收入和支出各需至少一个启用大类。").font(.caption).foregroundStyle(.secondary)
                 }
                 LedgerCard {
+                    Text("CSV 导入与导出").font(.headline)
+                    Text("表头：日期、收支类别、类别、金额、备注。日期示例：2026年1月2日，收支类别为支出或收入。备注选填，其他栏目忽略。").font(.caption).foregroundStyle(.secondary)
+                    Text("兼容逗号或制表符分列、“收支类型”表头及中文编码。未知类别自动添加，已停用类别重新启用。").font(.caption).foregroundStyle(.secondary)
+                    HStack { Button("导入 CSV 数据") { model.importCSV() }.buttonStyle(.borderedProminent); Button("导出全部 CSV") { model.exportCSV(all: true) } }
+                    Text("导入前检查整份文件并确认后追加；重复导入会重复记账。仅导出所选月份，请到每日账单点击“导出本月 CSV”。完整迁移仍请使用 JSON 备份。").font(.caption).foregroundStyle(.secondary)
+                }
+                LedgerCard {
                     Text("备份与恢复").font(.headline)
-                    Text("可导入 Windows v1.0—v1.3 或 Electron 版完整 JSON 备份。恢复会替换当前账本，并先保留原文件。").font(.caption).foregroundStyle(.secondary)
+                    Text("可导入 Windows v1.0—v1.4 或 Electron 版完整 JSON 备份。恢复会替换当前账本，并先保留原文件。").font(.caption).foregroundStyle(.secondary)
                     HStack { Button("备份全部数据") { model.backup() }.buttonStyle(.borderedProminent); Button("从 JSON 备份恢复") { model.restore() }; Button("打开数据文件夹") { model.openFolder() }; Button("查看自动备份") { model.openFolder(backups: true) } }
                     Text(model.directory?.path ?? "").font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                     Text("应用与数据分开保存。账目没有加密，重要备份应另存到其他磁盘。").font(.caption).foregroundStyle(.secondary)
@@ -363,7 +370,7 @@ struct LedgerSettingsView: View {
                 LedgerCard {
                     Text("统计口径").font(.headline)
                     Text("预算剩余 = 月预算 − 支出；收支结余 = 收入 − 支出，不代表银行余额。\n日均支出按月初至今天的自然天数计算；历史月份按整月计算。\n剩余每天可用按明天至月底计算。本月首页对比上月同期，走势虚线保留历史完整期间。").font(.caption).foregroundStyle(.secondary)
-                    Text("日常账本 1.3.0 · Apple 原生版").font(.caption2).foregroundStyle(.secondary)
+                    Text("日常账本 1.4.0 · Apple 原生版").font(.caption2).foregroundStyle(.secondary)
                 }
             }.padding(.bottom, 8)
         }
